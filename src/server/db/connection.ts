@@ -16,6 +16,10 @@ export function getDb(): Database.Database {
   _db = new Database(config.dbPath);
   _db.pragma('journal_mode = WAL');
   _db.pragma('foreign_keys = ON');
+  _db.pragma('synchronous = NORMAL');
+  _db.pragma('busy_timeout = 5000');
+  _db.pragma('cache_size = -20000');
+  _db.pragma('temp_store = MEMORY');
 
   _db.exec(SCHEMA_SQL);
 

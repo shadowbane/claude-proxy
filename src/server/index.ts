@@ -20,6 +20,7 @@ import { usageRoutes } from './routes/usage.js';
 import { requestLogRoutes } from './routes/request-logs.js';
 import { settingsRoutes } from './routes/settings.js';
 import { startLogCleanupSchedule, stopLogCleanupSchedule } from './lib/log-cleaner.js';
+import { flushPendingTouches } from './db/repositories/api-token.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -119,6 +120,7 @@ async function main() {
   const shutdown = async () => {
     fastify.log.info('Shutting down...');
     stopLogCleanupSchedule();
+    flushPendingTouches();
     await fastify.close();
     closeDb();
     process.exit(0);

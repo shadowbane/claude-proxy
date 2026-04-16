@@ -110,10 +110,42 @@ export function revealToken(tokenId: string): string | undefined {
 }
 
 /**
- * Update last_used_at timestamp. Called on each proxied request.
+ * Update last_used_at timestamp. Debounced — collects token IDs and flushes
+ * a single batched UPDATE every 30 seconds to avoid a write per request.
  */
+const FLUSH_INTERVAL_MS = 30_000;
+const pendingTouches = new Set<string>();
+let flushTimer: ReturnType<typeof setInterval> | null = null;
+
+function flushTouches(): void {
+  if (pendingTouches.size === 0) return;
+  const ids = [...pendingTouches];
+  pendingTouches.clear();
+
+  const db = getDb();
+  const placeholders = ids.map(() => '?').join(', ');
+  db.prepare(
+    `UPDATE api_tokens SET last_used_at = datetime('now') WHERE id IN (${placeholders})`,
+  ).run(...ids);
+}
+
 export function touchLastUsed(tokenId: string): void {
-  getDb()
-    .prepare(`UPDATE api_tokens SET last_used_at = datetime('now') WHERE id = ?`)
-    .run(tokenId);
+  pendingTouches.add(tokenId);
+
+  if (!flushTimer) {
+    flushTimer = setInterval(flushTouches, FLUSH_INTERVAL_MS);
+    // Allow the process to exit without waiting for the timer
+    if (flushTimer && typeof flushTimer === 'object' && 'unref' in flushTimer) {
+      flushTimer.unref();
+    }
+  }
+}
+
+/** Flush any pending touchLastUsed writes (call on shutdown). */
+export function flushPendingTouches(): void {
+  flushTouches();
+  if (flushTimer) {
+    clearInterval(flushTimer);
+    flushTimer = null;
+  }
 }

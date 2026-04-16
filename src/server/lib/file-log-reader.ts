@@ -119,19 +119,49 @@ export async function readFileLog(
   const wantLevelNum =
     filter.level && filter.level !== 'all' ? LEVEL_NUMS[filter.level.toLowerCase()] : null;
 
-  // Parse newest-first, then filter, then paginate.
-  const parsed: ParsedEntry[] = [];
+  // Two-phase approach: lightweight filter pass, then full parse only for the page.
+  const hasFilter = startMs != null || endMs != null || wantLevelNum != null;
+  const pageLines: string[] = [];
+  let total = 0;
+
   for (let i = lines.length - 1; i >= 0; i--) {
-    const entry = parseLine(lines[i]);
-    if (startMs != null && (entry.timeMs == null || entry.timeMs < startMs)) continue;
-    if (endMs != null && (entry.timeMs == null || entry.timeMs >= endMs)) continue;
-    if (wantLevelNum != null && entry.levelNum !== wantLevelNum) continue;
-    parsed.push(entry);
+    const line = lines[i];
+
+    // Lightweight filter: quick JSON.parse for time/level only, skip JSON.stringify
+    if (hasFilter) {
+      try {
+        const obj = JSON.parse(line) as { time?: number | string; level?: number | string };
+        let timeMs: number | null = null;
+        if (typeof obj.time === 'number') timeMs = obj.time;
+        else if (typeof obj.time === 'string') {
+          const p = Date.parse(obj.time);
+          timeMs = Number.isNaN(p) ? null : p;
+        }
+        let levelNum: number | null = null;
+        if (typeof obj.level === 'number') levelNum = obj.level;
+        else if (typeof obj.level === 'string') levelNum = LEVEL_NUMS[obj.level.toLowerCase()] ?? null;
+
+        if (startMs != null && (timeMs == null || timeMs < startMs)) continue;
+        if (endMs != null && (timeMs == null || timeMs >= endMs)) continue;
+        if (wantLevelNum != null && levelNum !== wantLevelNum) continue;
+      } catch {
+        // Non-JSON line — skip when filtering
+        continue;
+      }
+    }
+
+    // This line matches — count it
+    if (total >= offset && pageLines.length < limit) {
+      pageLines.push(line);
+    }
+    total++;
   }
 
-  const total = parsed.length;
-  const slice = parsed.slice(offset, offset + limit);
-  const entries: FileLogEntry[] = slice.map(({ timeMs: _t, levelNum: _l, ...rest }) => rest);
+  // Full parse (with pretty-print) only for the page we're returning
+  const entries: FileLogEntry[] = pageLines.map((line) => {
+    const { timeMs: _t, levelNum: _l, ...rest } = parseLine(line);
+    return rest;
+  });
 
   return { entries, total };
 }
