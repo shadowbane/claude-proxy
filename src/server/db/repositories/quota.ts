@@ -47,7 +47,7 @@ export function getTokensUsedInWindow(userId: string, windowStart: string): numb
   const db = getDb();
   const row = db.prepare(`
     SELECT COALESCE(
-      SUM(prompt_tokens + completion_tokens + cache_creation_input_tokens + cache_read_input_tokens), 0
+      SUM(prompt_tokens + completion_tokens), 0
     ) as total
     FROM request_logs
     WHERE user_id = ?

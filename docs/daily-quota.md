@@ -25,13 +25,13 @@ Override > Per-user quota > Global default > Unlimited
 
 ### What Counts as Tokens
 
-All four types from successful requests:
+Input and output tokens from successful requests:
 
 ```
-prompt_tokens + completion_tokens + cache_creation_input_tokens + cache_read_input_tokens
+prompt_tokens + completion_tokens
 ```
 
-Only `status = 'success'` requests count toward the quota. Error requests are excluded.
+Cache tokens (`cache_creation_input_tokens`, `cache_read_input_tokens`) are **not** counted toward the quota. Only `status = 'success'` requests count. Error requests are excluded.
 
 ## Quota Window
 
