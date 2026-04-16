@@ -19,6 +19,7 @@ import { proxyRoutes } from './routes/proxy.js';
 import { usageRoutes } from './routes/usage.js';
 import { requestLogRoutes } from './routes/request-logs.js';
 import { settingsRoutes } from './routes/settings.js';
+import { startLogCleanupSchedule, stopLogCleanupSchedule } from './lib/log-cleaner.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -111,9 +112,13 @@ async function main() {
     });
   }
 
+  // Start log cleanup scheduler
+  startLogCleanupSchedule(fastify.log);
+
   // Graceful shutdown
   const shutdown = async () => {
     fastify.log.info('Shutting down...');
+    stopLogCleanupSchedule();
     await fastify.close();
     closeDb();
     process.exit(0);

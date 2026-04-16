@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { adminAuth } from '../middleware/admin-auth.js';
 import { config } from '../config.js';
 import { getAll, upsert, remove, getDecrypted, upsertEncrypted } from '../db/repositories/settings.js';
+import { runLogCleanup } from '../lib/log-cleaner.js';
 
 export const settingsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', adminAuth);
@@ -79,6 +80,13 @@ export const settingsRoutes: FastifyPluginAsync = async (fastify) => {
       return { configured: true, source: 'env' as const, masked: mask(envKey) };
     }
     return { configured: false, source: 'none' as const, masked: null };
+  });
+
+  // ── Log Cleanup ──────────────────────────────────
+
+  // Manually trigger log cleanup
+  fastify.post('/settings/log-cleanup', async () => {
+    return runLogCleanup(true);
   });
 };
 
