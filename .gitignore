@@ -1,3 +1,25 @@
-# Added by code-review-graph
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Database
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+
+# IDE
+.idea/
+
+# Tools
 .code-review-graph/
 .claude/
