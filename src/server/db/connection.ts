@@ -20,6 +20,7 @@ export function getDb(): Database.Database {
   _db.pragma('busy_timeout = 5000');
   _db.pragma('cache_size = -20000');
   _db.pragma('temp_store = MEMORY');
+  _db.pragma('mmap_size = 268435456');
 
   _db.exec(SCHEMA_SQL);
 

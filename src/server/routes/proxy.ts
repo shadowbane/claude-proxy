@@ -3,7 +3,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { config } from '../config.js';
 import { proxyAuth } from '../middleware/proxy-auth.js';
 import { quotaCheck } from '../middleware/quota-check.js';
-import { create as createRequestLog, updateTokens } from '../db/repositories/request-log.js';
+import { create as createRequestLog } from '../db/repositories/request-log.js';
 import { getDecrypted } from '../db/repositories/settings.js';
 import { extractUsage, normalizeTokens } from '../lib/usage-extractor.js';
 import { findMalformedToolUse, sanitizeMessages } from '../lib/request-diagnostics.js';
@@ -98,9 +98,8 @@ async function forwardMessages(
       },
     );
 
-    const latencyMs = Math.round(performance.now() - startTime);
-
     if (!upstream.ok) {
+      const latencyMs = Math.round(performance.now() - startTime);
       const errText = await upstream.text();
       const errorMessage = `Upstream ${upstream.status}: ${errText.slice(0, 500)}`;
 
@@ -143,88 +142,96 @@ async function forwardMessages(
       return;
     }
 
-    // Success — create log entry, then stream response
-    const successLog = createRequestLog({
-      user_id: userId,
-      token_id: tokenId,
-      model,
-      endpoint,
-      prompt_tokens: 0,
-      completion_tokens: 0,
-      cache_creation_input_tokens: 0,
-      cache_read_input_tokens: 0,
-      latency_ms: latencyMs,
-      status: 'success',
-      error_message: null,
-      client_ip: clientIp,
-    });
-
-    // Forward upstream headers and stream the body straight back
+    // Success — stream response, extract usage, then write a single log row.
+    // If streaming throws (client disconnect, network error), the exception
+    // propagates to the outer catch which writes an error log — no early
+    // INSERT means no stale zero-token row to clean up.
     const contentType = upstream.headers.get('content-type') ?? 'application/json';
     reply.raw.statusCode = upstream.status;
     reply.raw.setHeader('content-type', contentType);
     const cacheControl = upstream.headers.get('cache-control');
     if (cacheControl) reply.raw.setHeader('cache-control', cacheControl);
 
-    if (!upstream.body) {
-      reply.raw.end();
-      return;
-    }
+    let promptTokens = 0;
+    let completionTokens = 0;
+    let cacheCreationTokens = 0;
+    let cacheReadTokens = 0;
 
-    // Stream response while teeing chunks for usage extraction
-    const reader = upstream.body.getReader();
-    const teeChunks: Buffer[] = [];
-    let teeSize = 0;
-    let teeOverflow = false;
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          reply.raw.write(value);
-          if (!teeOverflow) {
-            if (teeSize + value.byteLength <= USAGE_BUFFER_MAX) {
-              teeChunks.push(Buffer.from(value));
-              teeSize += value.byteLength;
-            } else {
-              teeOverflow = true;
+    if (upstream.body) {
+      // Stream response while teeing chunks for usage extraction
+      const reader = upstream.body.getReader();
+      const teeChunks: Buffer[] = [];
+      let teeSize = 0;
+      let teeOverflow = false;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            reply.raw.write(value);
+            if (!teeOverflow) {
+              if (teeSize + value.byteLength <= USAGE_BUFFER_MAX) {
+                teeChunks.push(Buffer.from(value));
+                teeSize += value.byteLength;
+              } else {
+                teeOverflow = true;
+              }
             }
           }
         }
+      } finally {
+        reply.raw.end();
       }
-    } finally {
+
+      // Best-effort usage extraction
+      try {
+        if (!teeOverflow && teeChunks.length > 0) {
+          const bodyText = Buffer.concat(teeChunks).toString('utf8');
+          const usage = extractUsage(bodyText, contentType);
+          if (usage) {
+            const { prompt, completion, cacheCreation, cacheRead } = normalizeTokens(usage);
+            promptTokens = prompt ?? 0;
+            completionTokens = completion ?? 0;
+            cacheCreationTokens = cacheCreation ?? 0;
+            cacheReadTokens = cacheRead ?? 0;
+
+            if (config.logDetailedRequest.toLowerCase() === 'true') {
+              fastify.log.debug(
+                  {usage, model, userId, endpoint},
+                  'Upstream usage — prompt_tokens=%d, completion_tokens=%d',
+                  prompt ?? 0,
+                  completion ?? 0,
+              );
+            }
+          }
+        } else if (teeOverflow) {
+          fastify.log.debug(
+            { model, userId, endpoint, bufferLimit: USAGE_BUFFER_MAX },
+            'Upstream usage skipped (response exceeded buffer cap)',
+          );
+        }
+      } catch (err) {
+        fastify.log.debug({ err }, 'Usage extraction failed');
+      }
+    } else {
       reply.raw.end();
     }
 
-    // Best-effort usage extraction
-    try {
-      if (!teeOverflow && teeChunks.length > 0) {
-        const bodyText = Buffer.concat(teeChunks).toString('utf8');
-        const usage = extractUsage(bodyText, contentType);
-        if (usage) {
-          const { prompt, completion, cacheCreation, cacheRead } = normalizeTokens(usage);
-          if (prompt != null || completion != null || cacheCreation != null || cacheRead != null) {
-            updateTokens(successLog.id, prompt, completion, cacheCreation, cacheRead);
-          }
-
-          if (config.logDetailedRequest.toLowerCase() === 'true') {
-            fastify.log.debug(
-                {usage, model, userId, endpoint, latencyMs},
-                'Upstream usage — prompt_tokens=%d, completion_tokens=%d',
-                prompt ?? 0,
-                completion ?? 0,
-            );
-          }
-        }
-      } else if (teeOverflow) {
-        fastify.log.debug(
-          { model, userId, endpoint, bufferLimit: USAGE_BUFFER_MAX },
-          'Upstream usage skipped (response exceeded buffer cap)',
-        );
-      }
-    } catch (err) {
-      fastify.log.debug({ err }, 'Usage extraction failed');
-    }
+    const latencyMs = Math.round(performance.now() - startTime);
+    createRequestLog({
+      user_id: userId,
+      token_id: tokenId,
+      model,
+      endpoint,
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      cache_creation_input_tokens: cacheCreationTokens,
+      cache_read_input_tokens: cacheReadTokens,
+      latency_ms: latencyMs,
+      status: 'success',
+      error_message: null,
+      client_ip: clientIp,
+    });
   } catch (err) {
     const latencyMs = Math.round(performance.now() - startTime);
     const errorMessage = err instanceof Error ? err.message : String(err);

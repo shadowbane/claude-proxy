@@ -3,7 +3,6 @@ import Database from 'better-sqlite3';
 import { createTestDb, mockGetDb } from './helpers.js';
 import {
   create,
-  updateTokens,
   getStats,
   getUsageByUser,
   getTimeSeries,
@@ -75,38 +74,6 @@ describe('create', () => {
     const log = seedLog({ user_id: userId });
     expect(log.user_id).toBe(userId);
     expect(log.token_id).toBeNull();
-  });
-});
-
-// ── updateTokens ────────────────────────────────────
-
-describe('updateTokens', () => {
-  it('updates token counts on a log entry', () => {
-    const log = seedLog();
-    updateTokens(log.id, 100, 50, 10, 5);
-
-    const row = db.prepare('SELECT * FROM request_logs WHERE id = ?').get(log.id) as {
-      prompt_tokens: number;
-      completion_tokens: number;
-      cache_creation_input_tokens: number;
-      cache_read_input_tokens: number;
-    };
-    expect(row.prompt_tokens).toBe(100);
-    expect(row.completion_tokens).toBe(50);
-    expect(row.cache_creation_input_tokens).toBe(10);
-    expect(row.cache_read_input_tokens).toBe(5);
-  });
-
-  it('preserves existing values when passing null', () => {
-    const log = seedLog({ prompt_tokens: 200 });
-    updateTokens(log.id, null, 75, null, null);
-
-    const row = db.prepare('SELECT * FROM request_logs WHERE id = ?').get(log.id) as {
-      prompt_tokens: number;
-      completion_tokens: number;
-    };
-    expect(row.prompt_tokens).toBe(200); // unchanged
-    expect(row.completion_tokens).toBe(75); // updated
   });
 });
 

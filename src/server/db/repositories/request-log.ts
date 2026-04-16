@@ -32,24 +32,6 @@ export function create(data: Omit<RequestLog, 'id' | 'created_at'>): RequestLog 
   };
 }
 
-export function updateTokens(
-  id: number,
-  promptTokens: number | null,
-  completionTokens: number | null,
-  cacheCreationTokens: number | null,
-  cacheReadTokens: number | null,
-): void {
-  const db = getDb();
-  db.prepare(`
-    UPDATE request_logs
-    SET prompt_tokens = COALESCE(?, prompt_tokens),
-        completion_tokens = COALESCE(?, completion_tokens),
-        cache_creation_input_tokens = COALESCE(?, cache_creation_input_tokens),
-        cache_read_input_tokens = COALESCE(?, cache_read_input_tokens)
-    WHERE id = ?
-  `).run(promptTokens, completionTokens, cacheCreationTokens, cacheReadTokens, id);
-}
-
 // ── Phase 5: Analytics queries ──────────────────────
 
 export function getStats(start?: string, end?: string): {
