@@ -27,6 +27,7 @@ export const config = {
   dbPath: env('DB_PATH', './data/proxy.db'),
   logLevel: env('LOG_LEVEL', 'info'),
   logDir: env('LOG_DIR', './data/logs'),
+  logDetailedRequest: env('LOG_DETAILED_REQUEST', 'false'),
 
   // Upstream MiMo-v2
   upstreamBaseUrl: env('UPSTREAM_BASE_URL').replace(/\/+$/, ''),

@@ -14,7 +14,7 @@ import { SettingsPage } from './components/settings/SettingsPage.js';
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
   '/users': 'Users',
-  '/logs': 'Request Logs',
+  '/logs': 'Logs',
   '/settings': 'Settings',
 };
 

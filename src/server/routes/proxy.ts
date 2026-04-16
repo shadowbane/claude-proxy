@@ -35,6 +35,14 @@ async function forwardMessages(
   // Extract model from request body for logging
   const model = typeof body.model === 'string' ? body.model : 'unknown';
 
+  // Debug: log the full inbound request body for diagnosing prompt_token spikes
+  if (config.logDetailedRequest.toLowerCase() === 'true') {
+    fastify.log.debug(
+        {userId, model, requestBody: body},
+        'Inbound proxy request — full body',
+    );
+  }
+
   // Defensive: sanitize malformed tool_use blocks before forwarding
   let forwardBody = body;
   const sanitized = sanitizeMessages(body);
@@ -191,10 +199,15 @@ async function forwardMessages(
           if (prompt != null || completion != null || cacheCreation != null || cacheRead != null) {
             updateTokens(successLog.id, prompt, completion, cacheCreation, cacheRead);
           }
-          fastify.log.debug(
-            { usage, model, userId, endpoint, latencyMs },
-            'Upstream usage',
-          );
+
+          if (config.logDetailedRequest.toLowerCase() === 'true') {
+            fastify.log.debug(
+                {usage, model, userId, endpoint, latencyMs},
+                'Upstream usage — prompt_tokens=%d, completion_tokens=%d',
+                prompt ?? 0,
+                completion ?? 0,
+            );
+          }
         }
       } else if (teeOverflow) {
         fastify.log.debug(
