@@ -13,6 +13,8 @@ import { getDb, closeDb, seedAdmin } from './db/connection.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { createRateLimiter } from './middleware/rate-limit.js';
 import { authRoutes } from './routes/auth.js';
+import { userRoutes } from './routes/users.js';
+import { tokenRoutes } from './routes/tokens.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -77,6 +79,8 @@ async function main() {
 
   // Routes
   await fastify.register(authRoutes, { prefix: '/api/auth' });
+  await fastify.register(userRoutes, { prefix: '/api/users' });
+  await fastify.register(tokenRoutes, { prefix: '/api' });
 
   // Health check
   fastify.get('/api/health', async () => {

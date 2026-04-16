@@ -7,6 +7,8 @@ import { SCHEMA_SQL } from '../src/server/db/schema.js';
 import { hashPassword } from '../src/server/lib/crypto.js';
 import { errorHandler } from '../src/server/middleware/error-handler.js';
 import { authRoutes } from '../src/server/routes/auth.js';
+import { userRoutes } from '../src/server/routes/users.js';
+import { tokenRoutes } from '../src/server/routes/tokens.js';
 import * as connectionModule from '../src/server/db/connection.js';
 import { vi } from 'vitest';
 
@@ -62,6 +64,8 @@ export async function buildTestApp(db: Database.Database): Promise<FastifyInstan
   });
   await app.register(fastifyCookie);
   await app.register(authRoutes, { prefix: '/api/auth' });
+  await app.register(userRoutes, { prefix: '/api/users' });
+  await app.register(tokenRoutes, { prefix: '/api' });
 
   app.get('/api/health', async () => ({ status: 'ok' }));
 
