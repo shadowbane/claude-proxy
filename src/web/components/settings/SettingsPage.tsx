@@ -398,10 +398,10 @@ export function SettingsPage() {
             setQuotaMessage(null);
             setQuotaSaving(true);
             try {
-              const patch: Record<string, string> = { quota_reset_time: quotaResetTime };
-              if (quotaDefaultLimit.trim()) {
-                patch.quota_default_limit = quotaDefaultLimit.trim();
-              }
+              const patch: Record<string, string> = {
+                quota_reset_time: quotaResetTime,
+                quota_default_limit: quotaDefaultLimit.trim(),
+              };
               await saveSettings(patch);
               setQuotaMessage({ type: 'success', text: 'Quota settings saved' });
             } catch (err) {

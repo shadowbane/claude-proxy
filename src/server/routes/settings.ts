@@ -48,8 +48,12 @@ export const settingsRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      // Validate quota_default_limit
+      // Validate quota_default_limit (empty string = remove)
       if (key === 'quota_default_limit') {
+        if (value === '') {
+          remove(key);
+          continue;
+        }
         const parsed = parseInt(value, 10);
         if (isNaN(parsed) || parsed < 0 || !Number.isInteger(parsed) || String(parsed) !== value) {
           return reply.status(400).send({
