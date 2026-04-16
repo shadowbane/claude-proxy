@@ -1,0 +1,16 @@
+node_modules
+dist
+data
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.local
+.git
+.gitignore
+.idea
+.claude
+.code-review-graph
+docs
+tests
+*.log

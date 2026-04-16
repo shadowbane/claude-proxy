@@ -1,0 +1,17 @@
+services:
+  claude-proxy:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - proxy-data:/app/data
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/app/data/proxy.db
+      - LOG_DIR=/app/data/logs
+
+volumes:
+  proxy-data:

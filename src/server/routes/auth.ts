@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { getAdminByUsername, getAdminById, updateAdminPassword } from '../db/repositories/admin.js';
 import { verifyPassword, hashPassword } from '../lib/crypto.js';
 import { adminAuth } from '../middleware/admin-auth.js';
+import { config } from '../config.js';
 
 interface LoginBody {
   username: string;
@@ -49,7 +50,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         path: '/',
         httpOnly: true,
         sameSite: 'strict',
-        secure: !fastify.config?.isDev,
+        secure: !config.isDev,
         maxAge: 60 * 60 * 24, // 24 hours
       })
       .send({
