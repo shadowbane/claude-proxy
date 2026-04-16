@@ -31,7 +31,7 @@ export const config = {
 
   // Upstream MiMo-v2
   upstreamBaseUrl: env('UPSTREAM_BASE_URL').replace(/\/+$/, ''),
-  upstreamApiKey: env('UPSTREAM_API_KEY'),
+  upstreamApiKey: env('UPSTREAM_API_KEY', ''),
 
   // Admin auth
   jwtSecret: env('JWT_SECRET'),

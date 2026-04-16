@@ -35,5 +35,5 @@ export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) => request<T>(path, jsonInit('POST', body)),
   put: <T>(path: string, body?: unknown) => request<T>(path, jsonInit('PUT', body)),
-  del: (path: string) => request<void>(path, { method: 'DELETE' }),
+  del: <T = void>(path: string) => request<T>(path, { method: 'DELETE' }),
 };

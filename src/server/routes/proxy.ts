@@ -3,8 +3,14 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { config } from '../config.js';
 import { proxyAuth } from '../middleware/proxy-auth.js';
 import { create as createRequestLog, updateTokens } from '../db/repositories/request-log.js';
+import { getDecrypted } from '../db/repositories/settings.js';
 import { extractUsage, normalizeTokens } from '../lib/usage-extractor.js';
 import { findMalformedToolUse, sanitizeMessages } from '../lib/request-diagnostics.js';
+
+function getUpstreamApiKey(): string {
+  const dbKey = getDecrypted('upstream_api_key', config.tokenEncryptionKey);
+  return dbKey || config.upstreamApiKey;
+}
 
 // Cap the per-request tee buffer used for usage extraction.
 const USAGE_BUFFER_MAX = 256 * 1024;
@@ -65,7 +71,7 @@ async function forwardMessages(
   // Build upstream headers — forward anthropic-version and anthropic-beta
   const upstreamHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${config.upstreamApiKey}`,
+    'Authorization': `Bearer ${getUpstreamApiKey()}`,
     'Accept': (request.headers.accept as string) ?? '*/*',
   };
   const anthropicVersion = request.headers['anthropic-version'];
