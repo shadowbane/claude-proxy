@@ -9,6 +9,10 @@ import { errorHandler } from '../src/server/middleware/error-handler.js';
 import { authRoutes } from '../src/server/routes/auth.js';
 import { userRoutes } from '../src/server/routes/users.js';
 import { tokenRoutes } from '../src/server/routes/tokens.js';
+import { proxyRoutes } from '../src/server/routes/proxy.js';
+import { usageRoutes } from '../src/server/routes/usage.js';
+import { requestLogRoutes } from '../src/server/routes/request-logs.js';
+import { settingsRoutes } from '../src/server/routes/settings.js';
 import * as connectionModule from '../src/server/db/connection.js';
 import { vi } from 'vitest';
 
@@ -48,7 +52,7 @@ export function mockGetDb(db: Database.Database) {
 }
 
 /**
- * Build a minimal Fastify app with JWT, cookie, error handler, and auth routes.
+ * Build a minimal Fastify app with JWT, cookie, error handler, and all routes.
  * Uses the provided test DB via mocked getDb().
  */
 export async function buildTestApp(db: Database.Database): Promise<FastifyInstance> {
@@ -66,6 +70,10 @@ export async function buildTestApp(db: Database.Database): Promise<FastifyInstan
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(userRoutes, { prefix: '/api/users' });
   await app.register(tokenRoutes, { prefix: '/api' });
+  await app.register(proxyRoutes, { prefix: '/v1' });
+  await app.register(usageRoutes, { prefix: '/api/usage' });
+  await app.register(requestLogRoutes, { prefix: '/api' });
+  await app.register(settingsRoutes, { prefix: '/api' });
 
   app.get('/api/health', async () => ({ status: 'ok' }));
 
@@ -90,4 +98,31 @@ export async function loginAs(
   if (!cookie) throw new Error('No cookie returned from login');
   // set-cookie can be string or string[]
   return Array.isArray(cookie) ? cookie[0] : cookie;
+}
+
+/**
+ * Create a test user and API token. Returns user ID, token ID, and raw token.
+ */
+export async function createTestUserWithToken(
+  app: FastifyInstance,
+  cookie: string,
+  userName = 'Test User',
+): Promise<{ userId: string; tokenId: string; rawToken: string }> {
+  const userRes = await app.inject({
+    method: 'POST',
+    url: '/api/users',
+    headers: { cookie },
+    payload: { name: userName },
+  });
+  const userId = userRes.json().id;
+
+  const tokenRes = await app.inject({
+    method: 'POST',
+    url: `/api/users/${userId}/tokens`,
+    headers: { cookie },
+    payload: { name: 'test-token' },
+  });
+  const { id: tokenId, raw_token: rawToken } = tokenRes.json();
+
+  return { userId, tokenId, rawToken };
 }

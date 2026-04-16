@@ -15,6 +15,10 @@ import { createRateLimiter } from './middleware/rate-limit.js';
 import { authRoutes } from './routes/auth.js';
 import { userRoutes } from './routes/users.js';
 import { tokenRoutes } from './routes/tokens.js';
+import { proxyRoutes } from './routes/proxy.js';
+import { usageRoutes } from './routes/usage.js';
+import { requestLogRoutes } from './routes/request-logs.js';
+import { settingsRoutes } from './routes/settings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -81,6 +85,10 @@ async function main() {
   await fastify.register(authRoutes, { prefix: '/api/auth' });
   await fastify.register(userRoutes, { prefix: '/api/users' });
   await fastify.register(tokenRoutes, { prefix: '/api' });
+  await fastify.register(proxyRoutes, { prefix: '/v1' });
+  await fastify.register(usageRoutes, { prefix: '/api/usage' });
+  await fastify.register(requestLogRoutes, { prefix: '/api' });
+  await fastify.register(settingsRoutes, { prefix: '/api' });
 
   // Health check
   fastify.get('/api/health', async () => {
