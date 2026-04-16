@@ -13,6 +13,7 @@ export interface User {
   name: string;
   email: string | null;
   enabled: number; // SQLite boolean: 0 | 1
+  daily_token_quota: number | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -22,12 +23,14 @@ export interface UserCreate {
   name: string;
   email?: string;
   enabled?: boolean;
+  daily_token_quota?: number | null;
 }
 
 export interface UserUpdate {
   name?: string;
   email?: string;
   enabled?: boolean;
+  daily_token_quota?: number | null;
 }
 
 // ── API Token ────────────────────────────────────
@@ -106,4 +109,32 @@ export interface TimeSeriesBucket {
   requests: number;
   prompt_tokens: number;
   completion_tokens: number;
+}
+
+// ── Quota Override ──────────────────────────────────
+export interface QuotaOverride {
+  id: string;
+  user_id: string;
+  start_date: string;   // YYYY-MM-DD
+  end_date: string;     // YYYY-MM-DD, inclusive
+  max_tokens: number;
+  note: string | null;
+  created_at: string;
+}
+
+export interface QuotaOverrideCreate {
+  start_date: string;
+  end_date: string;
+  max_tokens: number;
+  note?: string;
+}
+
+export interface QuotaStatus {
+  quota_limit: number | null;       // effective limit, null = unlimited
+  quota_source: 'override' | 'user' | 'default' | 'none';
+  tokens_used: number;
+  tokens_remaining: number | null;  // null = unlimited
+  window_start: string;
+  window_end: string;
+  override_id?: string;
 }

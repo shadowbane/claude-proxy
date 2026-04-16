@@ -23,6 +23,9 @@ export function getDb(): Database.Database {
 
   _db.exec(SCHEMA_SQL);
 
+  // Column migrations for existing databases
+  try { _db.exec('ALTER TABLE users ADD COLUMN daily_token_quota INTEGER DEFAULT NULL'); } catch { /* column already exists */ }
+
   return _db;
 }
 

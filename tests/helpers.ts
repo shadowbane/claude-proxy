@@ -13,6 +13,7 @@ import { proxyRoutes } from '../src/server/routes/proxy.js';
 import { usageRoutes } from '../src/server/routes/usage.js';
 import { requestLogRoutes } from '../src/server/routes/request-logs.js';
 import { settingsRoutes } from '../src/server/routes/settings.js';
+import { quotaOverrideRoutes } from '../src/server/routes/quota-overrides.js';
 import * as connectionModule from '../src/server/db/connection.js';
 import { vi } from 'vitest';
 
@@ -74,6 +75,7 @@ export async function buildTestApp(db: Database.Database): Promise<FastifyInstan
   await app.register(usageRoutes, { prefix: '/api/usage' });
   await app.register(requestLogRoutes, { prefix: '/api' });
   await app.register(settingsRoutes, { prefix: '/api' });
+  await app.register(quotaOverrideRoutes, { prefix: '/api' });
 
   app.get('/api/health', async () => ({ status: 'ok' }));
 

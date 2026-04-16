@@ -17,6 +17,10 @@ import { EditUserModal } from './EditUserModal.js';
 import { TokenList } from './TokenList.js';
 import { CreateTokenModal } from './CreateTokenModal.js';
 import { ConfirmDialog } from '../shared/ConfirmDialog.js';
+import { QuotaStatusCard } from './QuotaStatusCard.js';
+import { QuotaOverrideModal } from './QuotaOverrideModal.js';
+import { useQuota } from '@/hooks/useQuota.js';
+import { useQuotaOverrides } from '@/hooks/useQuotaOverrides.js';
 
 function formatBucket(bucket: string, granularity: 'hour' | 'day'): string {
   const parsed = new Date(bucket.replace(' ', 'T'));
@@ -92,8 +96,12 @@ export function UserDetailPage() {
     useUserTokens(id);
   const user = users.find((u) => u.id === id);
 
+  const { status: quotaStatus, loading: quotaLoading, refetch: refetchQuota } = useQuota(id);
+  const { overrides, createOverride, deleteOverride } = useQuotaOverrides(id);
+
   const [editOpen, setEditOpen] = useState(false);
   const [tokenModalOpen, setTokenModalOpen] = useState(false);
+  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -260,6 +268,8 @@ export function UserDetailPage() {
         </div>
       </div>
 
+      <QuotaStatusCard status={quotaStatus} loading={quotaLoading} />
+
       {chartError && (
         <div className="bg-red-950/40 border border-red-900/60 rounded-lg p-4 text-sm text-red-300">
           {chartError}
@@ -274,6 +284,57 @@ export function UserDetailPage() {
           <MiniChart title="Input Tokens over Time" color="#34d399" data={points} dataKey="prompt_tokens" granularity={granularity} />
         </div>
       )}
+
+      <div className="bg-slate-800 border border-slate-700/60 rounded-lg p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-slate-200">Quota Overrides</h3>
+          <button
+            onClick={() => setOverrideModalOpen(true)}
+            className="px-3 py-1.5 text-xs font-medium rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
+          >
+            + Add Override
+          </button>
+        </div>
+        {overrides.length === 0 ? (
+          <p className="text-sm text-slate-500">No overrides configured.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-slate-500 uppercase tracking-wide">
+                  <th className="pb-2 pr-4">Date Range</th>
+                  <th className="pb-2 pr-4">Max Tokens</th>
+                  <th className="pb-2 pr-4">Note</th>
+                  <th className="pb-2"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/60">
+                {overrides.map((o) => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const isPast = o.end_date < today;
+                  return (
+                    <tr key={o.id} className={isPast ? 'opacity-50' : ''}>
+                      <td className="py-2 pr-4 text-slate-300">
+                        {o.start_date} to {o.end_date}
+                      </td>
+                      <td className="py-2 pr-4 text-slate-300">{numberFmt.format(o.max_tokens)}</td>
+                      <td className="py-2 pr-4 text-slate-400">{o.note || '-'}</td>
+                      <td className="py-2 text-right">
+                        <button
+                          onClick={() => deleteOverride(o.id).then(refetchQuota)}
+                          className="text-xs text-red-400 hover:text-red-300"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <TokenList
         tokens={tokens}
@@ -297,6 +358,16 @@ export function UserDetailPage() {
         onSubmit={async (data) => {
           if (!user) return;
           await updateUser(user.id, data);
+          refetchQuota();
+        }}
+      />
+
+      <QuotaOverrideModal
+        open={overrideModalOpen}
+        onClose={() => setOverrideModalOpen(false)}
+        onCreate={async (data) => {
+          await createOverride(data);
+          refetchQuota();
         }}
       />
 

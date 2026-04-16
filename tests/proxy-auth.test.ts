@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import { createTestDb, seedTestAdmin, buildTestApp, loginAs, createTestUserWithToken } from './helpers.js';
+import { flushPendingTouches } from '../src/server/db/repositories/api-token.js';
 import type { FastifyInstance } from 'fastify';
 
 let db: Database.Database;
@@ -150,6 +151,8 @@ describe('proxy auth — Bearer token', () => {
       headers: { authorization: `Bearer ${rawToken}` },
       payload: { model: 'test', messages: [{ role: 'user', content: 'Hi' }], max_tokens: 10 },
     });
+
+    flushPendingTouches();
 
     const after = db.prepare('SELECT last_used_at FROM api_tokens WHERE id = ?').get(tokenId) as { last_used_at: string | null };
     expect(after.last_used_at).not.toBeNull();

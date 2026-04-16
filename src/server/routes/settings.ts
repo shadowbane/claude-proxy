@@ -32,6 +32,32 @@ export const settingsRoutes: FastifyPluginAsync = async (fastify) => {
           error: { message: `Value for "${key}" must be a string`, type: 'invalid_request_error', code: 400 },
         });
       }
+
+      // Validate quota_reset_time format
+      if (key === 'quota_reset_time') {
+        if (!/^\d{2}:\d{2}$/.test(value)) {
+          return reply.status(400).send({
+            error: { message: 'quota_reset_time must be in HH:MM format', type: 'invalid_request_error', code: 400 },
+          });
+        }
+        const [h, m] = value.split(':').map(Number);
+        if (h < 0 || h > 23 || m < 0 || m > 59) {
+          return reply.status(400).send({
+            error: { message: 'quota_reset_time must have valid hours (00-23) and minutes (00-59)', type: 'invalid_request_error', code: 400 },
+          });
+        }
+      }
+
+      // Validate quota_default_limit
+      if (key === 'quota_default_limit') {
+        const parsed = parseInt(value, 10);
+        if (isNaN(parsed) || parsed < 0 || !Number.isInteger(parsed) || String(parsed) !== value) {
+          return reply.status(400).send({
+            error: { message: 'quota_default_limit must be a non-negative integer', type: 'invalid_request_error', code: 400 },
+          });
+        }
+      }
+
       upsert(key, value);
     }
 

@@ -10,6 +10,7 @@ import {
   updateToken,
   revealToken,
   touchLastUsed,
+  flushPendingTouches,
 } from '../src/server/db/repositories/api-token.js';
 import { hashToken } from '../src/server/lib/crypto.js';
 
@@ -179,6 +180,7 @@ describe('touchLastUsed', () => {
     expect(token.last_used_at).toBeNull();
 
     touchLastUsed(token.id);
+    flushPendingTouches();
 
     const tokens = listByUser(userId);
     expect(tokens[0].last_used_at).toBeTruthy();

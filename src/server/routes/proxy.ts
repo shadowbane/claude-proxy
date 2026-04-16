@@ -2,6 +2,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { config } from '../config.js';
 import { proxyAuth } from '../middleware/proxy-auth.js';
+import { quotaCheck } from '../middleware/quota-check.js';
 import { create as createRequestLog, updateTokens } from '../db/repositories/request-log.js';
 import { getDecrypted } from '../db/repositories/settings.js';
 import { extractUsage, normalizeTokens } from '../lib/usage-extractor.js';
@@ -22,7 +23,7 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
   // Proxied messages — auth required
   fastify.post(
     '/messages',
-    { preHandler: [proxyAuth], bodyLimit: 10 * 1024 * 1024 },
+    { preHandler: [proxyAuth, quotaCheck], bodyLimit: 10 * 1024 * 1024 },
     async (request: FastifyRequest, reply: FastifyReply) => {
       await forwardMessages(request, reply, fastify);
     },

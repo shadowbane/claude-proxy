@@ -1,6 +1,7 @@
 // User routes — CRUD for API consumer accounts
 import type { FastifyPluginAsync } from 'fastify';
 import { listUsers, getUserById, createUser, updateUser, deleteUser } from '../db/repositories/user.js';
+import { getQuotaStatus } from '../db/repositories/quota.js';
 import { adminAuth } from '../middleware/admin-auth.js';
 import type { UserCreate, UserUpdate } from '../../shared/types.js';
 
@@ -15,7 +16,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
 
   // POST /api/users — create a new user
   fastify.post<{ Body: UserCreate }>('/', async (request, reply) => {
-    const { name, email, enabled } = request.body;
+    const { name, email, enabled, daily_token_quota } = request.body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return reply.status(400).send({
@@ -24,7 +25,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const admin = request.user as { id: string };
-    const user = createUser({ name: name.trim(), email, enabled }, admin.id);
+    const user = createUser({ name: name.trim(), email, enabled, daily_token_quota }, admin.id);
     return reply.status(201).send(user);
   });
 
@@ -37,6 +38,17 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
     return user;
+  });
+
+  // GET /api/users/:id/quota — get quota status for a user
+  fastify.get<{ Params: { id: string } }>('/:id/quota', async (request, reply) => {
+    const user = getUserById(request.params.id);
+    if (!user) {
+      return reply.status(404).send({
+        error: { message: 'User not found', type: 'not_found_error', code: 404 },
+      });
+    }
+    return getQuotaStatus(request.params.id);
   });
 
   // PUT /api/users/:id — update user

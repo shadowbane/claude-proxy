@@ -16,6 +16,8 @@ Built with TypeScript, Fastify 5, React 19, and SQLite.
 - **Streaming-first** — tees upstream response chunks to clients in real time while extracting usage in the background
 - **Security** — API tokens are SHA-256 hashed for lookup and AES-256-GCM encrypted at rest; admin passwords are
   bcrypt-hashed; JWT cookie auth for the dashboard
+- **Daily token quotas** — global default limit + per-user overrides, configurable reset time, date-range overrides, and
+  automatic proxy enforcement (429 when exceeded)
 - **Rate limiting** — configurable per-IP rate limits
 - **TLS support** — optional HTTPS via cert/key paths
 - **Request diagnostics** — automatically detects and sanitizes malformed `tool_use` blocks before forwarding
@@ -175,24 +177,28 @@ mount a volume there for persistence.
 
 ### Admin API (JWT cookie auth)
 
-| Method   | Path                        | Description              |
-|----------|-----------------------------|--------------------------|
-| `POST`   | `/api/auth/login`           | Admin login              |
-| `POST`   | `/api/auth/logout`          | Admin logout             |
-| `GET`    | `/api/auth/me`              | Current admin info       |
-| `GET`    | `/api/users`                | List users               |
-| `POST`   | `/api/users`                | Create user              |
-| `PATCH`  | `/api/users/:id`            | Update user              |
-| `DELETE` | `/api/users/:id`            | Delete user              |
-| `GET`    | `/api/users/:userId/tokens` | List user's tokens       |
-| `POST`   | `/api/users/:userId/tokens` | Create token             |
-| `DELETE` | `/api/tokens/:id`           | Revoke token             |
-| `GET`    | `/api/usage/summary`        | Usage summary stats      |
-| `GET`    | `/api/usage/by-user`        | Per-user usage breakdown |
-| `GET`    | `/api/request-logs`         | Paginated request logs   |
-| `GET`    | `/api/settings`             | Get settings             |
-| `PATCH`  | `/api/settings`             | Update settings          |
-| `GET`    | `/api/health`               | Health check             |
+| Method   | Path                                  | Description              |
+|----------|---------------------------------------|--------------------------|
+| `POST`   | `/api/auth/login`                     | Admin login              |
+| `POST`   | `/api/auth/logout`                    | Admin logout             |
+| `GET`    | `/api/auth/me`                        | Current admin info       |
+| `GET`    | `/api/users`                          | List users               |
+| `POST`   | `/api/users`                          | Create user              |
+| `PATCH`  | `/api/users/:id`                      | Update user              |
+| `DELETE` | `/api/users/:id`                      | Delete user              |
+| `GET`    | `/api/users/:userId/tokens`           | List user's tokens       |
+| `POST`   | `/api/users/:userId/tokens`           | Create token             |
+| `DELETE` | `/api/tokens/:id`                     | Revoke token             |
+| `GET`    | `/api/users/:id/quota`                | User quota status        |
+| `GET`    | `/api/users/:id/quota-overrides`      | List quota overrides     |
+| `POST`   | `/api/users/:id/quota-overrides`      | Create quota override    |
+| `DELETE` | `/api/users/:id/quota-overrides/:oid` | Delete override          |
+| `GET`    | `/api/usage/summary`                  | Usage summary stats      |
+| `GET`    | `/api/usage/by-user`                  | Per-user usage breakdown |
+| `GET`    | `/api/request-logs`                   | Paginated request logs   |
+| `GET`    | `/api/settings`                       | Get settings             |
+| `PATCH`  | `/api/settings`                       | Update settings          |
+| `GET`    | `/api/health`                         | Health check             |
 
 ## Project Structure
 
@@ -212,6 +218,7 @@ src/
     middleware/
       admin-auth.ts    # JWT cookie verification
       proxy-auth.ts    # Bearer token verification
+      quota-check.ts   # Daily token quota enforcement
       rate-limit.ts    # Per-IP rate limiting
     routes/            # Route handlers
   web/                 # React SPA

@@ -10,6 +10,8 @@ interface AddUserModalProps {
 export function AddUserModal({ open, onClose, onSubmit }: AddUserModalProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [quotaMode, setQuotaMode] = useState<'default' | 'custom' | 'unlimited'>('default');
+  const [quotaValue, setQuotaValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -17,6 +19,8 @@ export function AddUserModal({ open, onClose, onSubmit }: AddUserModalProps) {
     if (!open) return;
     setName('');
     setEmail('');
+    setQuotaMode('default');
+    setQuotaValue('');
     setSubmitting(false);
     setErrors({});
   }, [open]);
@@ -33,7 +37,13 @@ export function AddUserModal({ open, onClose, onSubmit }: AddUserModalProps) {
     if (!validate()) return;
     setSubmitting(true);
     try {
-      await onSubmit({ name: name.trim(), email: email.trim() || undefined });
+      const data: UserCreate = { name: name.trim(), email: email.trim() || undefined };
+      if (quotaMode === 'custom' && quotaValue) {
+        data.daily_token_quota = parseInt(quotaValue, 10);
+      } else if (quotaMode === 'unlimited') {
+        data.daily_token_quota = -1;
+      }
+      await onSubmit(data);
       onClose();
     } catch {
       // parent surfaces error
@@ -80,6 +90,35 @@ export function AddUserModal({ open, onClose, onSubmit }: AddUserModalProps) {
               className={inputClass('email')}
               placeholder="user@example.com"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">Daily Token Quota</label>
+            <select
+              value={quotaMode}
+              onChange={(e) => setQuotaMode(e.target.value as 'default' | 'custom' | 'unlimited')}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/60 mb-2"
+            >
+              <option value="default">Use global default</option>
+              <option value="custom">Custom limit</option>
+              <option value="unlimited">Unlimited</option>
+            </select>
+            {quotaMode === 'custom' && (
+              <input
+                type="number"
+                value={quotaValue}
+                onChange={(e) => setQuotaValue(e.target.value)}
+                className={inputClass('quota')}
+                placeholder="e.g. 1000000"
+                min={0}
+                step={1}
+              />
+            )}
+            <p className="mt-1 text-xs text-slate-500">
+              {quotaMode === 'default' && 'Inherits the global default limit from Settings.'}
+              {quotaMode === 'custom' && 'Maximum total tokens per day for this user.'}
+              {quotaMode === 'unlimited' && 'No daily limit, even if a global default is set.'}
+            </p>
           </div>
 
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-700">

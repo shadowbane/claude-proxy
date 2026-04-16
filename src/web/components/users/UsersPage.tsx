@@ -66,6 +66,7 @@ export function UsersPage() {
                   <th className="text-left px-4 py-3 font-medium">Name</th>
                   <th className="text-left px-4 py-3 font-medium">Email</th>
                   <th className="text-left px-4 py-3 font-medium">Created</th>
+                  <th className="text-left px-4 py-3 font-medium">Quota</th>
                   <th className="text-center px-4 py-3 font-medium">Enabled</th>
                   <th className="text-right px-4 py-3 font-medium">Actions</th>
                 </tr>
@@ -89,6 +90,13 @@ export function UsersPage() {
                     </td>
                     <td className="px-4 py-3 text-slate-500 text-xs">
                       {formatDate(user.created_at)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-400">
+                      {user.daily_token_quota === null
+                        ? <span className="text-slate-600">Default</span>
+                        : user.daily_token_quota === -1
+                          ? <span className="text-slate-400">Unlimited</span>
+                          : new Intl.NumberFormat().format(user.daily_token_quota)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button

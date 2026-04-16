@@ -12,14 +12,15 @@ export function getUserById(id: string): User | undefined {
 
 export function createUser(data: UserCreate, createdBy: string): User {
   const stmt = getDb().prepare(
-    `INSERT INTO users (name, email, enabled, created_by)
-     VALUES (?, ?, ?, ?)
+    `INSERT INTO users (name, email, enabled, daily_token_quota, created_by)
+     VALUES (?, ?, ?, ?, ?)
      RETURNING *`,
   );
   return stmt.get(
     data.name,
     data.email ?? null,
     data.enabled === false ? 0 : 1,
+    data.daily_token_quota ?? null,
     createdBy,
   ) as User;
 }
@@ -39,6 +40,10 @@ export function updateUser(id: string, data: UserUpdate): User | undefined {
   if (data.enabled !== undefined) {
     fields.push('enabled = ?');
     values.push(data.enabled ? 1 : 0);
+  }
+  if (data.daily_token_quota !== undefined) {
+    fields.push('daily_token_quota = ?');
+    values.push(data.daily_token_quota);
   }
 
   if (fields.length === 0) return getUserById(id);
