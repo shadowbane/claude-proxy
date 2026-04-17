@@ -175,6 +175,35 @@ export function getTimeSeries(
   }));
 }
 
+export function getDailyLeaderboardPosition(userId: string, windowStart: string): {
+  rank: number | null;
+  total_users: number;
+  tokens_used_today: number;
+} {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT user_id, SUM(prompt_tokens + completion_tokens) AS total
+    FROM request_logs
+    WHERE datetime(created_at) >= datetime(?)
+      AND status = 'success'
+      AND user_id IS NOT NULL
+    GROUP BY user_id
+    ORDER BY total DESC, user_id ASC
+  `).all(windowStart) as Array<{ user_id: string; total: number }>;
+
+  const total_users = rows.length;
+  const idx = rows.findIndex((r) => r.user_id === userId);
+
+  if (idx === -1) {
+    return { rank: null, total_users, tokens_used_today: 0 };
+  }
+  return {
+    rank: idx + 1,
+    total_users,
+    tokens_used_today: rows[idx].total,
+  };
+}
+
 export function getPaginated(
   limit = 50,
   offset = 0,
