@@ -4,6 +4,7 @@ import { useUsers } from '@/hooks/useUsers.js';
 import { addDays, startOfLocalDay } from '@/lib/date-range.js';
 import { DateRangeBar } from '../shared/DateRangeBar.js';
 import { Pagination } from './Pagination.js';
+import { Skeleton } from '../shared/Skeleton.js';
 
 function formatDateTime(value: string): string {
   const d = new Date(value.includes('T') ? value : `${value.replace(' ', 'T')}Z`);
@@ -88,11 +89,18 @@ export function RequestLogsTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/60">
-              {loading && (
-                <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-slate-500">Loading...</td>
-                </tr>
-              )}
+              {loading &&
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    <td className="px-3 py-1.5"><Skeleton className="h-3 w-32" /></td>
+                    <td className="px-3 py-1.5"><Skeleton className="h-3 w-24" /></td>
+                    <td className="px-3 py-1.5"><Skeleton className="h-3 w-28" /></td>
+                    <td className="px-3 py-1.5"><Skeleton className="h-3 w-14 ml-auto" /></td>
+                    <td className="px-3 py-1.5"><Skeleton className="h-3 w-14 ml-auto" /></td>
+                    <td className="px-3 py-1.5"><Skeleton className="h-3 w-16" /></td>
+                    <td className="px-3 py-1.5"><Skeleton className="h-3 w-12 ml-auto" /></td>
+                  </tr>
+                ))}
               {!loading && error && (
                 <tr>
                   <td colSpan={7} className="px-3 py-6 text-center text-red-400">{error}</td>

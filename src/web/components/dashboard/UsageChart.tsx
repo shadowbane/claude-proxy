@@ -8,6 +8,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { TimeSeriesBucket } from '@shared/types';
+import { Skeleton } from '../shared/Skeleton.js';
 
 function formatBucket(bucket: string, granularity: 'hour' | 'day'): string {
   const parsed = new Date(bucket.replace(' ', 'T'));
@@ -23,13 +24,16 @@ interface UsageChartProps {
   data: TimeSeriesBucket[];
   lines: { dataKey: keyof TimeSeriesBucket; color: string; label: string }[];
   granularity: 'hour' | 'day';
+  loading?: boolean;
 }
 
-export function UsageChart({ title, data, lines, granularity }: UsageChartProps) {
+export function UsageChart({ title, data, lines, granularity, loading = false }: UsageChartProps) {
   return (
     <div className="bg-slate-800 border border-slate-700/60 rounded-lg p-4">
       <h4 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">{title}</h4>
-      {data.length === 0 ? (
+      {loading ? (
+        <Skeleton className="h-56 w-full" />
+      ) : data.length === 0 ? (
         <div className="h-56 flex items-center justify-center text-sm text-slate-500">
           No data in this range
         </div>

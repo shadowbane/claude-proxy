@@ -22,6 +22,7 @@ import { QuotaOverrideModal } from './QuotaOverrideModal.js';
 import { useQuota } from '@/hooks/useQuota.js';
 import { useQuotaOverrides } from '@/hooks/useQuotaOverrides.js';
 import { StatCard } from '../dashboard/StatCard.js';
+import { Skeleton } from '../shared/Skeleton.js';
 
 function formatBucket(bucket: string, granularity: 'hour' | 'day'): string {
   const parsed = new Date(bucket.replace(' ', 'T'));
@@ -261,14 +262,14 @@ export function UserDetailPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Requests" value={numberFmt.format(totals.requests)} />
-        <StatCard label="Input Tokens" value={numberFmt.format(totals.prompt)} />
-        <StatCard label="Output Tokens" value={numberFmt.format(totals.completion)} />
-        <StatCard label="Total Tokens" value={numberFmt.format(totals.totalTokens)} />
-        <StatCard label="Cache Creation Tokens" value={numberFmt.format(totals.cacheCreation)} />
-        <StatCard label="Cache Read Tokens" value={numberFmt.format(totals.cacheRead)} />
-        <StatCard label="Total w/ Cache" value={numberFmt.format(totals.totalWithCache)} />
-        <StatCard label="Est. MiMo Credits (2×)" value={numberFmt.format(totals.estimatedCredits)} />
+        <StatCard label="Requests" value={numberFmt.format(totals.requests)} loading={chartLoading} />
+        <StatCard label="Input Tokens" value={numberFmt.format(totals.prompt)} loading={chartLoading} />
+        <StatCard label="Output Tokens" value={numberFmt.format(totals.completion)} loading={chartLoading} />
+        <StatCard label="Total Tokens" value={numberFmt.format(totals.totalTokens)} loading={chartLoading} />
+        <StatCard label="Cache Creation Tokens" value={numberFmt.format(totals.cacheCreation)} loading={chartLoading} />
+        <StatCard label="Cache Read Tokens" value={numberFmt.format(totals.cacheRead)} loading={chartLoading} />
+        <StatCard label="Total w/ Cache" value={numberFmt.format(totals.totalWithCache)} loading={chartLoading} />
+        <StatCard label="Est. MiMo Credits (2×)" value={numberFmt.format(totals.estimatedCredits)} loading={chartLoading} />
       </div>
 
       <QuotaStatusCard status={quotaStatus} loading={quotaLoading} />
@@ -279,14 +280,25 @@ export function UserDetailPage() {
         </div>
       )}
 
-      {chartLoading ? (
-        <div className="text-sm text-slate-500">Loading charts...</div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <MiniChart title="Requests over Time" color="#60a5fa" data={points} dataKey="requests" granularity={granularity} />
-          <MiniChart title="Input Tokens over Time" color="#34d399" data={points} dataKey="prompt_tokens" granularity={granularity} />
-        </div>
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {chartLoading ? (
+          <>
+            <div className="bg-slate-800 border border-slate-700/60 rounded-lg p-4">
+              <h4 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Requests over Time</h4>
+              <Skeleton className="h-48 w-full" />
+            </div>
+            <div className="bg-slate-800 border border-slate-700/60 rounded-lg p-4">
+              <h4 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Input Tokens over Time</h4>
+              <Skeleton className="h-48 w-full" />
+            </div>
+          </>
+        ) : (
+          <>
+            <MiniChart title="Requests over Time" color="#60a5fa" data={points} dataKey="requests" granularity={granularity} />
+            <MiniChart title="Input Tokens over Time" color="#34d399" data={points} dataKey="prompt_tokens" granularity={granularity} />
+          </>
+        )}
+      </div>
 
       <div className="bg-slate-800 border border-slate-700/60 rounded-lg p-5">
         <div className="flex items-center justify-between mb-4">

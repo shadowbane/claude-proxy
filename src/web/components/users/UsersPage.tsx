@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUsers } from '@/hooks/useUsers.js';
 import { AddUserModal } from './AddUserModal.js';
 import { ConfirmDialog } from '../shared/ConfirmDialog.js';
+import { Skeleton } from '../shared/Skeleton.js';
 import type { User, UserCreate } from '@shared/types';
 
 function formatDate(value: string | null): string {
@@ -40,7 +41,36 @@ export function UsersPage() {
         </div>
       )}
 
-      {loading && <p className="text-slate-500 text-sm">Loading...</p>}
+      {loading && (
+        <div className="bg-slate-800 border border-slate-700/60 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-900/60 text-slate-400">
+                <tr>
+                  <th className="text-left px-4 py-3 font-medium">Name</th>
+                  <th className="text-left px-4 py-3 font-medium">Email</th>
+                  <th className="text-left px-4 py-3 font-medium">Created</th>
+                  <th className="text-left px-4 py-3 font-medium">Quota</th>
+                  <th className="text-center px-4 py-3 font-medium">Enabled</th>
+                  <th className="text-right px-4 py-3 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/60">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-3 w-40" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-3 w-28" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-3 w-16" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-5 w-9 mx-auto rounded-full" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-5 w-14 ml-auto" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {!loading && users.length === 0 && (
         <div className="text-center py-20">

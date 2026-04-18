@@ -3,6 +3,7 @@ import { useFileLogs, type FileLogType } from '@/hooks/useFileLogs.js';
 import { addDays, startOfLocalDay } from '@/lib/date-range.js';
 import { DateRangeBar } from '../shared/DateRangeBar.js';
 import { Pagination } from './Pagination.js';
+import { Skeleton } from '../shared/Skeleton.js';
 
 function formatTime(value: string): string {
   if (!value) return '\u2014';
@@ -110,13 +111,15 @@ export function FileLogsTab({ type }: { type: FileLogType }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700/60">
-            {loading && (
-              <tr>
-                <td colSpan={4} className="px-3 py-6 text-center text-slate-500">
-                  Loading...
-                </td>
-              </tr>
-            )}
+            {loading &&
+              Array.from({ length: 8 }).map((_, i) => (
+                <tr key={`sk-${i}`}>
+                  <td className="px-2 py-1.5"><Skeleton className="h-3 w-3 mx-auto" /></td>
+                  <td className="px-3 py-1.5"><Skeleton className="h-3 w-32" /></td>
+                  <td className="px-3 py-1.5"><Skeleton className="h-3 w-12" /></td>
+                  <td className="px-3 py-1.5"><Skeleton className="h-3 w-full max-w-md" /></td>
+                </tr>
+              ))}
             {!loading && error && (
               <tr>
                 <td colSpan={4} className="px-3 py-6 text-center text-red-400">

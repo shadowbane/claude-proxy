@@ -1,15 +1,26 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth.js';
 import { AuthGuard } from './components/layout/AuthGuard.js';
 import { LoginPage } from './components/auth/LoginPage.js';
 import { Sidebar } from './components/layout/Sidebar.js';
 import { Header } from './components/layout/Header.js';
-import { UsageDashboard } from './components/dashboard/UsageDashboard.js';
-import { UsersPage } from './components/users/UsersPage.js';
-import { UserDetailPage } from './components/users/UserDetailPage.js';
-import { LogsPage } from './components/logs/LogsPage.js';
-import { SettingsPage } from './components/settings/SettingsPage.js';
+
+const UsageDashboard = lazy(() =>
+  import('./components/dashboard/UsageDashboard.js').then((m) => ({ default: m.UsageDashboard })),
+);
+const UsersPage = lazy(() =>
+  import('./components/users/UsersPage.js').then((m) => ({ default: m.UsersPage })),
+);
+const UserDetailPage = lazy(() =>
+  import('./components/users/UserDetailPage.js').then((m) => ({ default: m.UserDetailPage })),
+);
+const LogsPage = lazy(() =>
+  import('./components/logs/LogsPage.js').then((m) => ({ default: m.LogsPage })),
+);
+const SettingsPage = lazy(() =>
+  import('./components/settings/SettingsPage.js').then((m) => ({ default: m.SettingsPage })),
+);
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
@@ -23,6 +34,10 @@ function resolveTitle(pathname: string): string {
   return PAGE_TITLES[pathname] ?? 'Claude Proxy';
 }
 
+function RouteFallback() {
+  return <div className="p-4 md:p-6 text-slate-500 text-sm">Loading…</div>;
+}
+
 function Layout({ onLogout }: { onLogout: () => void }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
@@ -34,14 +49,16 @@ function Layout({ onLogout }: { onLogout: () => void }) {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <Header title={title} onMenuToggle={() => setMobileOpen((prev) => !prev)} />
         <main className="flex-1 overflow-auto">
-          <Routes>
-            <Route path="/" element={<UsageDashboard />} />
-            <Route path="/users" element={<UsersPage />} />
-            <Route path="/users/:id" element={<UserDetailPage />} />
-            <Route path="/logs" element={<LogsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/" element={<UsageDashboard />} />
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/users/:id" element={<UserDetailPage />} />
+              <Route path="/logs" element={<LogsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </main>
       </div>
     </div>
