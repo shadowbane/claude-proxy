@@ -8,8 +8,8 @@ export function create(data: Omit<RequestLog, 'id' | 'created_at'>): RequestLog 
   const db = getDb();
   const result = db.prepare(`
     INSERT INTO request_logs (user_id, token_id, model, endpoint, prompt_tokens, completion_tokens,
-      cache_creation_input_tokens, cache_read_input_tokens, latency_ms, status, error_message, client_ip)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      cache_creation_input_tokens, cache_read_input_tokens, estimated_credits, latency_ms, status, error_message, client_ip)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     data.user_id,
     data.token_id,
@@ -19,6 +19,7 @@ export function create(data: Omit<RequestLog, 'id' | 'created_at'>): RequestLog 
     data.completion_tokens,
     data.cache_creation_input_tokens,
     data.cache_read_input_tokens,
+    data.estimated_credits,
     data.latency_ms,
     data.status,
     data.error_message,
@@ -44,6 +45,8 @@ export function getStats(start?: string, end?: string): {
   cacheCreationTokens: number;
   cacheReadTokens: number;
   totalTokens: number;
+  totalWithCache: number;
+  estimatedCredits: number;
 } {
   const db = getDb();
   const hasRange = start != null && end != null;
@@ -61,7 +64,8 @@ export function getStats(start?: string, end?: string): {
       COALESCE(SUM(prompt_tokens), 0) as promptTokens,
       COALESCE(SUM(completion_tokens), 0) as completionTokens,
       COALESCE(SUM(cache_creation_input_tokens), 0) as cacheCreationTokens,
-      COALESCE(SUM(cache_read_input_tokens), 0) as cacheReadTokens
+      COALESCE(SUM(cache_read_input_tokens), 0) as cacheReadTokens,
+      COALESCE(SUM(estimated_credits), 0) as estimatedCredits
     FROM request_logs
     ${where}
   `).get(...params) as {
@@ -73,11 +77,17 @@ export function getStats(start?: string, end?: string): {
     completionTokens: number;
     cacheCreationTokens: number;
     cacheReadTokens: number;
+    estimatedCredits: number;
   };
+
+  const totalTokens = (row.promptTokens ?? 0) + (row.completionTokens ?? 0);
+  const totalWithCache =
+    totalTokens + (row.cacheCreationTokens ?? 0) + (row.cacheReadTokens ?? 0);
 
   return {
     ...row,
-    totalTokens: (row.promptTokens ?? 0) + (row.completionTokens ?? 0),
+    totalTokens,
+    totalWithCache,
   };
 }
 
@@ -92,6 +102,8 @@ export function getUsageByUser(start?: string, end?: string): Array<{
   cache_creation_tokens: number;
   cache_read_tokens: number;
   total_tokens: number;
+  total_with_cache: number;
+  estimated_credits: number;
   last_used_at: string | null;
 }> {
   const db = getDb();
@@ -112,6 +124,7 @@ export function getUsageByUser(start?: string, end?: string): Array<{
       COALESCE(SUM(rl.completion_tokens), 0) AS completion_tokens,
       COALESCE(SUM(rl.cache_creation_input_tokens), 0) AS cache_creation_tokens,
       COALESCE(SUM(rl.cache_read_input_tokens), 0) AS cache_read_tokens,
+      COALESCE(SUM(rl.estimated_credits), 0) AS estimated_credits,
       MAX(rl.created_at) AS last_used_at
     FROM request_logs rl
     LEFT JOIN users u ON u.id = rl.user_id
@@ -120,12 +133,16 @@ export function getUsageByUser(start?: string, end?: string): Array<{
     GROUP BY rl.user_id, u.name
     ORDER BY (COALESCE(SUM(rl.prompt_tokens), 0) + COALESCE(SUM(rl.completion_tokens), 0)) DESC,
              COUNT(*) DESC
-  `).all(...params) as Array<Omit<ReturnType<typeof getUsageByUser>[number], 'total_tokens'>>;
+  `).all(...params) as Array<
+    Omit<ReturnType<typeof getUsageByUser>[number], 'total_tokens' | 'total_with_cache'>
+  >;
 
-  return rows.map((r) => ({
-    ...r,
-    total_tokens: (r.prompt_tokens ?? 0) + (r.completion_tokens ?? 0),
-  }));
+  return rows.map((r) => {
+    const total_tokens = (r.prompt_tokens ?? 0) + (r.completion_tokens ?? 0);
+    const total_with_cache =
+      total_tokens + (r.cache_creation_tokens ?? 0) + (r.cache_read_tokens ?? 0);
+    return { ...r, total_tokens, total_with_cache };
+  });
 }
 
 export function getTimeSeries(
@@ -139,7 +156,11 @@ export function getTimeSeries(
   requests: number;
   prompt_tokens: number;
   completion_tokens: number;
+  cache_creation_tokens: number;
+  cache_read_tokens: number;
+  estimated_credits: number;
   total_tokens: number;
+  total_with_cache: number;
 }> {
   const db = getDb();
   const fmt = bucket === 'hour' ? '%Y-%m-%d %H:00' : '%Y-%m-%d';
@@ -154,7 +175,10 @@ export function getTimeSeries(
       strftime(?, datetime(created_at, ?)) AS bucket,
       COUNT(*) AS requests,
       COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
-      COALESCE(SUM(completion_tokens), 0) AS completion_tokens
+      COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+      COALESCE(SUM(cache_creation_input_tokens), 0) AS cache_creation_tokens,
+      COALESCE(SUM(cache_read_input_tokens), 0) AS cache_read_tokens,
+      COALESCE(SUM(estimated_credits), 0) AS estimated_credits
     FROM request_logs
     WHERE datetime(created_at) >= datetime(?)
       AND datetime(created_at) < datetime(?)
@@ -167,12 +191,17 @@ export function getTimeSeries(
     requests: number;
     prompt_tokens: number;
     completion_tokens: number;
+    cache_creation_tokens: number;
+    cache_read_tokens: number;
+    estimated_credits: number;
   }>;
 
-  return rows.map((r) => ({
-    ...r,
-    total_tokens: (r.prompt_tokens ?? 0) + (r.completion_tokens ?? 0),
-  }));
+  return rows.map((r) => {
+    const total_tokens = (r.prompt_tokens ?? 0) + (r.completion_tokens ?? 0);
+    const total_with_cache =
+      total_tokens + (r.cache_creation_tokens ?? 0) + (r.cache_read_tokens ?? 0);
+    return { ...r, total_tokens, total_with_cache };
+  });
 }
 
 export function getDailyLeaderboardPosition(userId: string, windowStart: string): {

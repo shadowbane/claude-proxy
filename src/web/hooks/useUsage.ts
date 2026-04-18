@@ -12,6 +12,8 @@ export interface ServerUsageStats {
   cacheCreationTokens: number;
   cacheReadTokens: number;
   totalTokens: number;
+  totalWithCache: number;
+  estimatedCredits: number;
 }
 
 // Matches the actual shape returned by getUsageByUser() on the server
@@ -26,6 +28,8 @@ export interface ServerUserUsage {
   cache_creation_tokens: number;
   cache_read_tokens: number;
   total_tokens: number;
+  total_with_cache: number;
+  estimated_credits: number;
   last_used_at: string | null;
 }
 

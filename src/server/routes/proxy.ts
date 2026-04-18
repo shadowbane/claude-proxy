@@ -6,6 +6,7 @@ import { quotaCheck } from '../middleware/quota-check.js';
 import { create as createRequestLog } from '../db/repositories/request-log.js';
 import { getDecrypted } from '../db/repositories/settings.js';
 import { extractUsage, normalizeTokens } from '../lib/usage-extractor.js';
+import { estimateCredits } from '../lib/credit-calculator.js';
 import { findMalformedToolUse, sanitizeMessages } from '../lib/request-diagnostics.js';
 
 function getUpstreamApiKey(): string {
@@ -112,6 +113,7 @@ async function forwardMessages(
         completion_tokens: 0,
         cache_creation_input_tokens: 0,
         cache_read_input_tokens: 0,
+        estimated_credits: null,
         latency_ms: latencyMs,
         status: 'error',
         error_message: errorMessage,
@@ -227,6 +229,13 @@ async function forwardMessages(
       completion_tokens: completionTokens,
       cache_creation_input_tokens: cacheCreationTokens,
       cache_read_input_tokens: cacheReadTokens,
+      estimated_credits: estimateCredits({
+        model,
+        promptTokens,
+        completionTokens,
+        cacheCreationTokens,
+        cacheReadTokens,
+      }),
       latency_ms: latencyMs,
       status: 'success',
       error_message: null,
@@ -245,6 +254,7 @@ async function forwardMessages(
       completion_tokens: 0,
       cache_creation_input_tokens: 0,
       cache_read_input_tokens: 0,
+      estimated_credits: null,
       latency_ms: latencyMs,
       status: 'error',
       error_message: errorMessage,

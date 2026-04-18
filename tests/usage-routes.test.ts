@@ -23,6 +23,7 @@ function seedLog(overrides: Record<string, unknown> = {}) {
     completion_tokens: (overrides.completion_tokens as number) ?? 0,
     cache_creation_input_tokens: (overrides.cache_creation_input_tokens as number) ?? 0,
     cache_read_input_tokens: (overrides.cache_read_input_tokens as number) ?? 0,
+    estimated_credits: (overrides.estimated_credits as number | null) ?? null,
     latency_ms: (overrides.latency_ms as number) ?? 100,
     status: (overrides.status as string) ?? 'success',
     error_message: (overrides.error_message as string) ?? null,
@@ -86,6 +87,36 @@ describe('GET /api/usage/stats', () => {
 
     expect(res.json().total).toBe(0);
   });
+
+  it('exposes totalWithCache and estimatedCredits', async () => {
+    seedLog({
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      cache_creation_input_tokens: 20,
+      cache_read_input_tokens: 300,
+      estimated_credits: 940,
+    });
+    seedLog({
+      prompt_tokens: 10,
+      completion_tokens: 5,
+      cache_read_input_tokens: 100,
+      estimated_credits: null, // non-pro model
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/usage/stats',
+      headers: { cookie },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.cacheCreationTokens).toBe(20);
+    expect(body.cacheReadTokens).toBe(400);
+    expect(body.totalTokens).toBe(165);
+    expect(body.totalWithCache).toBe(165 + 20 + 400);
+    expect(body.estimatedCredits).toBe(940);
+  });
 });
 
 // ── GET /api/usage/by-user ──────────────────────────
@@ -120,6 +151,32 @@ describe('GET /api/usage/by-user', () => {
       url: '/api/usage/by-user',
     });
     expect(res.statusCode).toBe(401);
+  });
+
+  it('exposes total_with_cache and estimated_credits per user', async () => {
+    const userId = seedUser('Alice');
+    seedLog({
+      user_id: userId,
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      cache_creation_input_tokens: 20,
+      cache_read_input_tokens: 300,
+      estimated_credits: 940,
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/usage/by-user',
+      headers: { cookie },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body).toHaveLength(1);
+    expect(body[0].cache_creation_tokens).toBe(20);
+    expect(body[0].cache_read_tokens).toBe(300);
+    expect(body[0].total_with_cache).toBe(150 + 20 + 300);
+    expect(body[0].estimated_credits).toBe(940);
   });
 });
 

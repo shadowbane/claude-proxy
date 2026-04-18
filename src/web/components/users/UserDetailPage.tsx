@@ -21,6 +21,7 @@ import { QuotaStatusCard } from './QuotaStatusCard.js';
 import { QuotaOverrideModal } from './QuotaOverrideModal.js';
 import { useQuota } from '@/hooks/useQuota.js';
 import { useQuotaOverrides } from '@/hooks/useQuotaOverrides.js';
+import { StatCard } from '../dashboard/StatCard.js';
 
 function formatBucket(bucket: string, granularity: 'hour' | 'day'): string {
   const parsed = new Date(bucket.replace(' ', 'T'));
@@ -134,15 +135,21 @@ export function UserDetailPage() {
   };
 
   const totals = useMemo(() => {
-    return points.reduce(
+    const sum = points.reduce(
       (acc, p) => {
         acc.requests += p.requests;
         acc.prompt += p.prompt_tokens;
         acc.completion += p.completion_tokens;
+        acc.cacheCreation += p.cache_creation_tokens ?? 0;
+        acc.cacheRead += p.cache_read_tokens ?? 0;
+        acc.estimatedCredits += p.estimated_credits ?? 0;
         return acc;
       },
-      { requests: 0, prompt: 0, completion: 0 },
+      { requests: 0, prompt: 0, completion: 0, cacheCreation: 0, cacheRead: 0, estimatedCredits: 0 },
     );
+    const totalTokens = sum.prompt + sum.completion;
+    const totalWithCache = totalTokens + sum.cacheCreation + sum.cacheRead;
+    return { ...sum, totalTokens, totalWithCache };
   }, [points]);
 
   const applyQuickRange = (days: number) => {
@@ -253,19 +260,15 @@ export function UserDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="bg-slate-800 border border-slate-700/60 rounded-lg p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-2">Requests</p>
-          <p className="text-2xl font-bold text-slate-100">{numberFmt.format(totals.requests)}</p>
-        </div>
-        <div className="bg-slate-800 border border-slate-700/60 rounded-lg p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-2">Input Tokens</p>
-          <p className="text-2xl font-bold text-slate-100">{numberFmt.format(totals.prompt)}</p>
-        </div>
-        <div className="bg-slate-800 border border-slate-700/60 rounded-lg p-4 col-span-2 lg:col-span-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-2">Output Tokens</p>
-          <p className="text-2xl font-bold text-slate-100">{numberFmt.format(totals.completion)}</p>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Requests" value={numberFmt.format(totals.requests)} />
+        <StatCard label="Input Tokens" value={numberFmt.format(totals.prompt)} />
+        <StatCard label="Output Tokens" value={numberFmt.format(totals.completion)} />
+        <StatCard label="Total Tokens" value={numberFmt.format(totals.totalTokens)} />
+        <StatCard label="Cache Creation Tokens" value={numberFmt.format(totals.cacheCreation)} />
+        <StatCard label="Cache Read Tokens" value={numberFmt.format(totals.cacheRead)} />
+        <StatCard label="Total w/ Cache" value={numberFmt.format(totals.totalWithCache)} />
+        <StatCard label="Est. MiMo Credits (2×)" value={numberFmt.format(totals.estimatedCredits)} />
       </div>
 
       <QuotaStatusCard status={quotaStatus} loading={quotaLoading} />

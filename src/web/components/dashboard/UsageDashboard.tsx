@@ -88,6 +88,10 @@ export function UsageDashboard() {
             <StatCard label="Total Input Tokens" value={numberFmt.format(stats?.promptTokens ?? 0)} />
             <StatCard label="Total Output Tokens" value={numberFmt.format(stats?.completionTokens ?? 0)} />
             <StatCard label="Total Tokens" value={numberFmt.format(stats?.totalTokens ?? 0)} />
+            <StatCard label="Cache Creation Tokens" value={numberFmt.format(stats?.cacheCreationTokens ?? 0)} />
+            <StatCard label="Cache Read Tokens" value={numberFmt.format(stats?.cacheReadTokens ?? 0)} />
+            <StatCard label="Total w/ Cache" value={numberFmt.format(stats?.totalWithCache ?? 0)} />
+            <StatCard label="Est. MiMo Credits (2×)" value={numberFmt.format(stats?.estimatedCredits ?? 0)} />
           </div>
 
           {!chartLoading && (

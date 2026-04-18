@@ -18,6 +18,7 @@ function seedLog(overrides: Record<string, unknown> = {}) {
     completion_tokens: (overrides.completion_tokens as number) ?? 0,
     cache_creation_input_tokens: (overrides.cache_creation_input_tokens as number) ?? 0,
     cache_read_input_tokens: (overrides.cache_read_input_tokens as number) ?? 0,
+    estimated_credits: (overrides.estimated_credits as number | null) ?? null,
     latency_ms: (overrides.latency_ms as number) ?? 100,
     status: (overrides.status as string) ?? 'success',
     error_message: (overrides.error_message as string) ?? null,

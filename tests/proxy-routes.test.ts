@@ -109,6 +109,51 @@ describe('POST /v1/messages — JSON', () => {
     expect(log.model).toBe('test');
   });
 
+  it('stores NULL estimated_credits for non-mimo-v2-pro models', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'msg_x',
+          type: 'message',
+          usage: { input_tokens: 100, output_tokens: 50 },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    ));
+
+    await makeProxyRequest({ model: 'some-other-model', messages: [{ role: 'user', content: 'Hi' }], max_tokens: 10 });
+
+    const log = db.prepare('SELECT estimated_credits FROM request_logs ORDER BY id DESC LIMIT 1').get() as {
+      estimated_credits: number | null;
+    };
+    expect(log.estimated_credits).toBeNull();
+  });
+
+  it('stores estimated_credits (2× total) for mimo-v2-pro', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'msg_pro',
+          type: 'message',
+          usage: {
+            input_tokens: 100,
+            output_tokens: 50,
+            cache_creation_input_tokens: 10,
+            cache_read_input_tokens: 1000,
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    ));
+
+    await makeProxyRequest({ model: 'mimo-v2-pro', messages: [{ role: 'user', content: 'Hi' }], max_tokens: 10 });
+
+    const log = db.prepare('SELECT estimated_credits FROM request_logs ORDER BY id DESC LIMIT 1').get() as {
+      estimated_credits: number | null;
+    };
+    expect(log.estimated_credits).toBe((100 + 50 + 10 + 1000) * 2);
+  });
+
   it('forwards anthropic-version and anthropic-beta headers', async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),

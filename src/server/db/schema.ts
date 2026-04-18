@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS request_logs (
   completion_tokens           INTEGER DEFAULT 0,
   cache_creation_input_tokens INTEGER DEFAULT 0,
   cache_read_input_tokens     INTEGER DEFAULT 0,
+  estimated_credits           INTEGER DEFAULT NULL,
   latency_ms                  INTEGER DEFAULT 0,
   status                      TEXT NOT NULL DEFAULT 'success',
   error_message               TEXT,

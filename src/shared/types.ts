@@ -69,6 +69,7 @@ export interface RequestLog {
   completion_tokens: number;
   cache_creation_input_tokens: number;
   cache_read_input_tokens: number;
+  estimated_credits: number | null;
   latency_ms: number;
   status: string;
   error_message: string | null;
@@ -109,6 +110,9 @@ export interface TimeSeriesBucket {
   requests: number;
   prompt_tokens: number;
   completion_tokens: number;
+  cache_creation_tokens: number;
+  cache_read_tokens: number;
+  estimated_credits: number;
 }
 
 // ── Quota Override ──────────────────────────────────

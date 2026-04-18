@@ -35,6 +35,7 @@ function seedLog(overrides: Partial<{
   completion_tokens: number;
   cache_creation_input_tokens: number;
   cache_read_input_tokens: number;
+  estimated_credits: number | null;
   latency_ms: number;
   status: string;
   error_message: string | null;
@@ -49,6 +50,7 @@ function seedLog(overrides: Partial<{
     completion_tokens: overrides.completion_tokens ?? 0,
     cache_creation_input_tokens: overrides.cache_creation_input_tokens ?? 0,
     cache_read_input_tokens: overrides.cache_read_input_tokens ?? 0,
+    estimated_credits: overrides.estimated_credits ?? null,
     latency_ms: overrides.latency_ms ?? 100,
     status: overrides.status ?? 'success',
     error_message: overrides.error_message ?? null,
@@ -74,6 +76,22 @@ describe('create', () => {
     const log = seedLog({ user_id: userId });
     expect(log.user_id).toBe(userId);
     expect(log.token_id).toBeNull();
+  });
+
+  it('persists estimated_credits when provided', () => {
+    const log = seedLog({ estimated_credits: 1234 });
+    const row = db
+      .prepare('SELECT estimated_credits FROM request_logs WHERE id = ?')
+      .get(log.id) as { estimated_credits: number | null };
+    expect(row.estimated_credits).toBe(1234);
+  });
+
+  it('persists estimated_credits as NULL by default', () => {
+    const log = seedLog({});
+    const row = db
+      .prepare('SELECT estimated_credits FROM request_logs WHERE id = ?')
+      .get(log.id) as { estimated_credits: number | null };
+    expect(row.estimated_credits).toBeNull();
   });
 });
 
@@ -101,6 +119,32 @@ describe('getStats', () => {
     expect(stats.completionTokens).toBe(150);
     expect(stats.totalTokens).toBe(450);
     expect(stats.avgLatencyMs).toBeCloseTo(216.67, 0);
+  });
+
+  it('aggregates cache tokens, total_with_cache, and estimated_credits', () => {
+    seedLog({
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      cache_creation_input_tokens: 25,
+      cache_read_input_tokens: 1000,
+      estimated_credits: 2350, // (100+50+25+1000) * 2
+    });
+    seedLog({
+      prompt_tokens: 200,
+      completion_tokens: 100,
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: 500,
+      estimated_credits: 1600, // (200+100+0+500) * 2
+    });
+    // Non-pro model with NULL credits — should not contribute to estimated_credits sum
+    seedLog({ prompt_tokens: 10, completion_tokens: 5, estimated_credits: null });
+
+    const stats = getStats();
+    expect(stats.cacheCreationTokens).toBe(25);
+    expect(stats.cacheReadTokens).toBe(1500);
+    expect(stats.totalTokens).toBe(465); // 150 + 300 + 15
+    expect(stats.totalWithCache).toBe(465 + 25 + 1500);
+    expect(stats.estimatedCredits).toBe(3950);
   });
 
   it('filters by date range', () => {
@@ -141,6 +185,34 @@ describe('getUsageByUser', () => {
   it('returns empty array when no logs', () => {
     expect(getUsageByUser()).toEqual([]);
   });
+
+  it('includes total_with_cache and estimated_credits per user', () => {
+    const userId = seedUser('Alice');
+    seedLog({
+      user_id: userId,
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      cache_creation_input_tokens: 10,
+      cache_read_input_tokens: 200,
+      estimated_credits: 720, // (100+50+10+200) * 2
+    });
+    seedLog({
+      user_id: userId,
+      prompt_tokens: 200,
+      completion_tokens: 100,
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: 300,
+      estimated_credits: 1200, // (200+100+0+300) * 2
+    });
+
+    const usage = getUsageByUser();
+    expect(usage).toHaveLength(1);
+    expect(usage[0].cache_creation_tokens).toBe(10);
+    expect(usage[0].cache_read_tokens).toBe(500);
+    expect(usage[0].total_tokens).toBe(450);
+    expect(usage[0].total_with_cache).toBe(450 + 10 + 500);
+    expect(usage[0].estimated_credits).toBe(1920);
+  });
 });
 
 // ── getTimeSeries ───────────────────────────────────
@@ -174,6 +246,23 @@ describe('getTimeSeries', () => {
 
     const series = getTimeSeries('2000-01-01', '2099-12-31', 0, 'day');
     expect(series[0].prompt_tokens).toBe(100);
+  });
+
+  it('includes cache tokens and estimated_credits in each bucket', () => {
+    seedLog({
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      cache_creation_input_tokens: 25,
+      cache_read_input_tokens: 500,
+      estimated_credits: 1350,
+    });
+
+    const series = getTimeSeries('2000-01-01', '2099-12-31', 0, 'day');
+    expect(series.length).toBeGreaterThanOrEqual(1);
+    expect(series[0].cache_creation_tokens).toBe(25);
+    expect(series[0].cache_read_tokens).toBe(500);
+    expect(series[0].estimated_credits).toBe(1350);
+    expect(series[0].total_with_cache).toBe(150 + 25 + 500);
   });
 });
 
