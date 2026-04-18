@@ -17,6 +17,26 @@ function envInt(key: string, fallback: number): number {
   return parsed;
 }
 
+function envBool(key: string, fallback: boolean): boolean {
+  const raw = process.env[key];
+  if (raw === undefined || raw === '') return fallback;
+  return raw.toLowerCase() === 'true' || raw === '1';
+}
+
+export type TrustProxySetting = boolean | number | string[];
+
+function parseTrustProxy(raw: string | undefined): TrustProxySetting {
+  if (raw === undefined || raw.trim() === '') return false;
+  const v = raw.trim();
+  if (v.toLowerCase() === 'true') return true;
+  if (v.toLowerCase() === 'false') return false;
+  if (/^\d+$/.test(v)) return parseInt(v, 10);
+  return v
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
 const nodeEnv = env('NODE_ENV', 'development');
 
 export const config = {
@@ -51,6 +71,10 @@ export const config = {
 
   // Request
   requestTimeoutMs: envInt('REQUEST_TIMEOUT_MS', 300_000),
+
+  // Reverse proxy trust
+  trustProxy: parseTrustProxy(process.env['TRUST_PROXY']),
+  trustCloudflare: envBool('TRUST_CLOUDFLARE', false),
 
   isDev: nodeEnv === 'development',
   isProd: nodeEnv === 'production',

@@ -68,6 +68,13 @@ Optional:
 - `RATE_LIMIT_MAX` (default: 120), `RATE_LIMIT_WINDOW_MS` (default: 60000)
 - `LOG_LEVEL` (default: info), `LOG_DIR` (default: ./data/logs)
 - `REQUEST_TIMEOUT_MS` (default: 300000)
+- `TRUST_PROXY` (default: false) — controls Fastify's `trustProxy`. Accepts `true`/`false`, an
+  integer hop count, or a comma-separated list of IPs/CIDRs (shorthands: `loopback`, `linklocal`,
+  `uniquelocal`). Example for behind nginx/caddy: `loopback,uniquelocal`.
+- `TRUST_CLOUDFLARE` (default: false) — when `true` and `NODE_ENV=production`, fetches Cloudflare's
+  published IP ranges (https://www.cloudflare.com/ips-v4 + ips-v6), caches at
+  `data/cloudflare-ips.json`, refreshes every 7 days, and merges with `TRUST_PROXY`. Only takes
+  effect when `TRUST_PROXY` is a CIDR list (boolean/number is authoritative).
 
 ## Database
 

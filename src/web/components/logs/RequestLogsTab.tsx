@@ -80,6 +80,7 @@ export function RequestLogsTab() {
             <thead className="bg-slate-900/60 text-slate-400">
               <tr>
                 <th className="text-left px-3 py-2 font-medium whitespace-nowrap">Time</th>
+                <th className="text-left px-3 py-2 font-medium">IP Addr</th>
                 <th className="text-left px-3 py-2 font-medium">User</th>
                 <th className="text-left px-3 py-2 font-medium">Model</th>
                 <th className="text-right px-3 py-2 font-medium">Input</th>
@@ -93,6 +94,7 @@ export function RequestLogsTab() {
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={`sk-${i}`}>
                     <td className="px-3 py-1.5"><Skeleton className="h-3 w-32" /></td>
+                    <td className="px-3 py-1.5"><Skeleton className="h-3 w-24" /></td>
                     <td className="px-3 py-1.5"><Skeleton className="h-3 w-24" /></td>
                     <td className="px-3 py-1.5"><Skeleton className="h-3 w-28" /></td>
                     <td className="px-3 py-1.5"><Skeleton className="h-3 w-14 ml-auto" /></td>
@@ -117,6 +119,9 @@ export function RequestLogsTab() {
                   <tr key={log.id} className="hover:bg-slate-800/60">
                     <td className="px-3 py-1.5 text-slate-500 font-mono whitespace-nowrap">
                       {formatDateTime(log.created_at)}
+                    </td>
+                    <td className="px-3 py-1.5 text-slate-300">
+                      {log.client_ip }
                     </td>
                     <td className="px-3 py-1.5 text-slate-300">
                       {log.user_id ? userMap.get(log.user_id) ?? log.user_id.slice(0, 8) : '\u2014'}

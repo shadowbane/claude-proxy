@@ -280,7 +280,7 @@ export function UserDetailPage() {
         <StatCard label="Cache Creation Tokens" value={numberFmt.format(totals.cacheCreation)} loading={chartLoading} />
         <StatCard label="Cache Read Tokens" value={numberFmt.format(totals.cacheRead)} loading={chartLoading} />
         <StatCard label="Total w/ Cache" value={numberFmt.format(totals.totalWithCache)} loading={chartLoading} />
-        <StatCard label="Est. MiMo Credits (2×)" value={numberFmt.format(totals.estimatedCredits)} loading={chartLoading} />
+        <StatCard label="Est. MiMo Credits" value={numberFmt.format(totals.estimatedCredits)} loading={chartLoading} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

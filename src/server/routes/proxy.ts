@@ -58,6 +58,9 @@ async function forwardMessages(
   if (sanitized.removedToolUseIds.length > 0 || sanitized.droppedMessageIndices.length > 0) {
     fastify.log.warn(
       {
+        clientIp,
+        userId,
+        tokenId,
         removedToolUseIds: sanitized.removedToolUseIds,
         removedToolResultIds: sanitized.removedToolResultIds,
         droppedMessageIndices: sanitized.droppedMessageIndices,
@@ -127,6 +130,9 @@ async function forwardMessages(
         if (problems.length > 0) {
           fastify.log.warn(
             {
+              clientIp,
+              userId,
+              tokenId,
               upstreamStatus: upstream.status,
               problems: problems.map((p) => ({
                 messageIndex: p.messageIndex,
@@ -262,7 +268,7 @@ async function forwardMessages(
       client_ip: clientIp,
     });
 
-    fastify.log.error({ err, userId, endpoint }, 'Proxy request failed');
+    fastify.log.error({ err, clientIp, userId, tokenId, endpoint }, 'Proxy request failed');
     reply.status(502).send({
       error: { message: errorMessage, type: 'upstream_error' },
     });

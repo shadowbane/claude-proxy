@@ -162,6 +162,13 @@ export function FileLogsTab({ type }: { type: FileLogType }) {
                             {errMsg}
                           </div>
                         )}
+                        {entry.clientIp && (
+                          <div className="mt-0.5">
+                            <span className="inline-block text-[10px] uppercase tracking-wide text-slate-400 bg-slate-900/80 border border-slate-700/60 rounded px-1.5 py-0.5">
+                              ip {entry.clientIp}
+                            </span>
+                          </div>
+                        )}
                       </td>
                     </tr>
                     {isOpen && (

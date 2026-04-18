@@ -23,6 +23,12 @@ import { quotaOverrideRoutes } from './routes/quota-overrides.js';
 import { creditOverrideRoutes } from './routes/credit-overrides.js';
 import { planUsageRoutes } from './routes/plan-usage.js';
 import { startLogCleanupSchedule, stopLogCleanupSchedule } from './lib/log-cleaner.js';
+import {
+  loadCloudflareCidrs,
+  startCloudflareRefreshSchedule,
+  stopCloudflareRefreshSchedule,
+} from './lib/cloudflare-ips.js';
+import { buildTrustProxy, setTrustList } from './lib/trust-proxy.js';
 import { flushPendingTouches } from './db/repositories/api-token.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -34,8 +40,21 @@ const appLogPath = path.join(config.logDir, 'app.log');
 const errorLogPath = path.join(config.logDir, 'error.log');
 
 async function main() {
+  // Resolve the trust list before constructing Fastify. Cloudflare CIDRs are
+  // merged in only when (a) opted in via TRUST_CLOUDFLARE, (b) running in
+  // production, and (c) TRUST_PROXY is a list (boolean/number is authoritative).
+  let trustEntries: string[] = Array.isArray(config.trustProxy) ? [...config.trustProxy] : [];
+  if (config.trustCloudflare && config.isProd && Array.isArray(config.trustProxy)) {
+    const cfCidrs = await loadCloudflareCidrs();
+    trustEntries = [...trustEntries, ...cfCidrs];
+  }
+  const trustProxyOption = Array.isArray(config.trustProxy)
+    ? buildTrustProxy(trustEntries)
+    : buildTrustProxy(config.trustProxy);
+
   const fastify = Fastify({
     disableRequestLogging: true,
+    trustProxy: trustProxyOption,
     logger: {
       level: config.logLevel,
       transport: config.isDev
@@ -122,10 +141,26 @@ async function main() {
   // Start log cleanup scheduler
   startLogCleanupSchedule(fastify.log);
 
+  // Refresh Cloudflare CIDRs every 7 days when enabled. The closure swaps the
+  // shared trust list, so the Fastify-level predicate picks up changes without
+  // a restart.
+  if (config.trustCloudflare && config.isProd && Array.isArray(config.trustProxy)) {
+    const baseEntries = [...config.trustProxy];
+    startCloudflareRefreshSchedule(
+      {
+        info: (m) => fastify.log.info(m),
+        warn: (m) => fastify.log.warn(m),
+        error: (e, m) => fastify.log.error(e, m),
+      },
+      (cidrs) => setTrustList([...baseEntries, ...cidrs]),
+    );
+  }
+
   // Graceful shutdown
   const shutdown = async () => {
     fastify.log.info('Shutting down...');
     stopLogCleanupSchedule();
+    stopCloudflareRefreshSchedule();
     flushPendingTouches();
     await fastify.close();
     closeDb();

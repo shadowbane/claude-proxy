@@ -88,7 +88,7 @@ export function UsageDashboard() {
         <StatCard label="Cache Creation Tokens" value={numberFmt.format(stats?.cacheCreationTokens ?? 0)} loading={loading} />
         <StatCard label="Cache Read Tokens" value={numberFmt.format(stats?.cacheReadTokens ?? 0)} loading={loading} />
         <StatCard label="Total w/ Cache" value={numberFmt.format(stats?.totalWithCache ?? 0)} loading={loading} />
-        <StatCard label="Est. MiMo Credits (2×)" value={numberFmt.format(stats?.estimatedCredits ?? 0)} loading={loading} />
+        <StatCard label="Est. MiMo Credits" value={numberFmt.format(stats?.estimatedCredits ?? 0)} loading={loading} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

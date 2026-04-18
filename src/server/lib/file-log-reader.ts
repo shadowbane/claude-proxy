@@ -1,6 +1,9 @@
 // Read pino JSON log files and return paginated entries, newest-first.
+// Stream-based with a bounded ring buffer to avoid loading the whole file (SEC-01).
+import { createReadStream } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
+import readline from 'readline';
 import { config } from '../config.js';
 
 export interface FileLogEntry {
@@ -8,6 +11,7 @@ export interface FileLogEntry {
   level: string;
   msg: string;
   err?: { type?: string; message?: string; stack?: string };
+  clientIp?: string;
   raw: string;
 }
 
@@ -47,6 +51,7 @@ function parseLine(line: string): ParsedEntry {
       level?: number | string;
       msg?: string;
       message?: string;
+      clientIp?: string;
       err?: { type?: string; message?: string; stack?: string };
     };
     let timeMs: number | null = null;
@@ -83,12 +88,43 @@ function parseLine(line: string): ParsedEntry {
       level: levelStr,
       msg: obj.msg ?? obj.message ?? '',
       err,
+      clientIp: typeof obj.clientIp === 'string' ? obj.clientIp : undefined,
       raw: pretty,
       timeMs,
       levelNum,
     };
   } catch {
     return { time: '', level: '', msg: line, raw: line, timeMs: null, levelNum: null };
+  }
+}
+
+// Lightweight per-line filter: only parses time + level fields.
+function lineMatchesFilter(
+  line: string,
+  startMs: number | null,
+  endMs: number | null,
+  wantLevelNum: number | null,
+): boolean {
+  if (startMs == null && endMs == null && wantLevelNum == null) return true;
+  try {
+    const obj = JSON.parse(line) as { time?: number | string; level?: number | string };
+    let timeMs: number | null = null;
+    if (typeof obj.time === 'number') timeMs = obj.time;
+    else if (typeof obj.time === 'string') {
+      const p = Date.parse(obj.time);
+      timeMs = Number.isNaN(p) ? null : p;
+    }
+    let levelNum: number | null = null;
+    if (typeof obj.level === 'number') levelNum = obj.level;
+    else if (typeof obj.level === 'string') levelNum = LEVEL_NUMS[obj.level.toLowerCase()] ?? null;
+
+    if (startMs != null && (timeMs == null || timeMs < startMs)) return false;
+    if (endMs != null && (timeMs == null || timeMs >= endMs)) return false;
+    if (wantLevelNum != null && levelNum !== wantLevelNum) return false;
+    return true;
+  } catch {
+    // Non-JSON line — drop when filtering
+    return false;
   }
 }
 
@@ -100,9 +136,9 @@ export async function readFileLog(
 ): Promise<{ entries: FileLogEntry[]; total: number }> {
   const file = path.join(config.logDir, type === 'app' ? 'app.log' : 'error.log');
 
-  let content: string;
+  // ENOENT → empty result (matches previous behaviour).
   try {
-    content = await fs.readFile(file, 'utf8');
+    await fs.access(file);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return { entries: [], total: 0 };
@@ -110,54 +146,57 @@ export async function readFileLog(
     throw err;
   }
 
-  const lines = content.split('\n').filter((l) => l.trim().length > 0);
-
   const startMs =
     filter.start && !Number.isNaN(Date.parse(filter.start)) ? Date.parse(filter.start) : null;
   const endMs =
     filter.end && !Number.isNaN(Date.parse(filter.end)) ? Date.parse(filter.end) : null;
   const wantLevelNum =
-    filter.level && filter.level !== 'all' ? LEVEL_NUMS[filter.level.toLowerCase()] : null;
+    filter.level && filter.level !== 'all' ? LEVEL_NUMS[filter.level.toLowerCase()] ?? null : null;
 
-  // Two-phase approach: lightweight filter pass, then full parse only for the page.
-  const hasFilter = startMs != null || endMs != null || wantLevelNum != null;
-  const pageLines: string[] = [];
+  // Stream forward, keep a ring buffer of the last (offset + limit) matching raw lines.
+  // Memory bounded by page size, not file size.
+  const capacity = Math.max(0, offset + limit);
+  const ring: string[] = capacity > 0 ? new Array(capacity) : [];
+  let ringStart = 0;
+  let ringCount = 0;
   let total = 0;
 
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i];
-
-    // Lightweight filter: quick JSON.parse for time/level only, skip JSON.stringify
-    if (hasFilter) {
-      try {
-        const obj = JSON.parse(line) as { time?: number | string; level?: number | string };
-        let timeMs: number | null = null;
-        if (typeof obj.time === 'number') timeMs = obj.time;
-        else if (typeof obj.time === 'string') {
-          const p = Date.parse(obj.time);
-          timeMs = Number.isNaN(p) ? null : p;
-        }
-        let levelNum: number | null = null;
-        if (typeof obj.level === 'number') levelNum = obj.level;
-        else if (typeof obj.level === 'string') levelNum = LEVEL_NUMS[obj.level.toLowerCase()] ?? null;
-
-        if (startMs != null && (timeMs == null || timeMs < startMs)) continue;
-        if (endMs != null && (timeMs == null || timeMs >= endMs)) continue;
-        if (wantLevelNum != null && levelNum !== wantLevelNum) continue;
-      } catch {
-        // Non-JSON line — skip when filtering
-        continue;
+  await new Promise<void>((resolve, reject) => {
+    const reader = readline.createInterface({
+      input: createReadStream(file, { encoding: 'utf8' }),
+      crlfDelay: Infinity,
+    });
+    reader.on('line', (line) => {
+      if (line.trim().length === 0) return;
+      if (!lineMatchesFilter(line, startMs, endMs, wantLevelNum)) return;
+      total++;
+      if (capacity === 0) return;
+      if (ringCount < capacity) {
+        ring[(ringStart + ringCount) % capacity] = line;
+        ringCount++;
+      } else {
+        ring[ringStart] = line;
+        ringStart = (ringStart + 1) % capacity;
       }
-    }
+    });
+    reader.on('error', reject);
+    reader.on('close', resolve);
+  });
 
-    // This line matches — count it
-    if (total >= offset && pageLines.length < limit) {
-      pageLines.push(line);
-    }
-    total++;
+  // Materialise the ring in chronological (oldest→newest) order.
+  const ordered: string[] = new Array(ringCount);
+  for (let i = 0; i < ringCount; i++) {
+    ordered[i] = ring[(ringStart + i) % capacity]!;
   }
 
-  // Full parse (with pretty-print) only for the page we're returning
+  // The ring holds up to (offset + limit) most-recent matches. Caller wants
+  // page `[offset, offset+limit)` from the newest-first ordering, which maps
+  // to the chronological slice `[ringCount - offset - limit, ringCount - offset)`.
+  const sliceEnd = Math.max(0, ringCount - offset);
+  const sliceStart = Math.max(0, sliceEnd - limit);
+  const pageChrono = ordered.slice(sliceStart, sliceEnd);
+  const pageLines = pageChrono.reverse(); // newest-first
+
   const entries: FileLogEntry[] = pageLines.map((line) => {
     const { timeMs: _t, levelNum: _l, ...rest } = parseLine(line);
     return rest;

@@ -6,6 +6,7 @@ export interface FileLogEntry {
   level: string;
   msg: string;
   err?: { type?: string; message?: string; stack?: string };
+  clientIp?: string;
   raw: string;
 }
 

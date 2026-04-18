@@ -43,9 +43,15 @@ export function errorHandler(
       : error.message;
 
   if (statusCode >= 500) {
-    request.log.error({ err: error, req: request.url }, error.message);
+    request.log.error(
+      { err: error, url: request.url, method: request.method, clientIp: request.ip },
+      error.message,
+    );
   } else {
-    request.log.warn({ statusCode, url: request.url }, error.message);
+    request.log.warn(
+      { statusCode, url: request.url, method: request.method, clientIp: request.ip },
+      error.message,
+    );
   }
 
   const body: Record<string, unknown> = {
