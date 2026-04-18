@@ -107,4 +107,91 @@ describe('PUT /api/settings', () => {
     });
     expect(res.statusCode).toBe(401);
   });
+
+  // ── credit settings validation ─────────────────
+
+  it('rejects credit_reset_day=0', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings',
+      headers: { cookie },
+      payload: { credit_reset_day: '0' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects credit_reset_day=29', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings',
+      headers: { cookie },
+      payload: { credit_reset_day: '29' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('accepts credit_reset_day=15', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings',
+      headers: { cookie },
+      payload: { credit_reset_day: '15' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().credit_reset_day).toBe('15');
+  });
+
+  it('accepts credit_limit_default=-1 (unlimited)', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings',
+      headers: { cookie },
+      payload: { credit_limit_default: '-1' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().credit_limit_default).toBe('-1');
+  });
+
+  it('accepts credit_limit_default=100000', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings',
+      headers: { cookie },
+      payload: { credit_limit_default: '100000' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('rejects non-integer credit_limit_default', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings',
+      headers: { cookie },
+      payload: { credit_limit_default: 'foo' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects credit_limit_default less than -1', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings',
+      headers: { cookie },
+      payload: { credit_limit_default: '-5' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('empty-string credit_reset_day removes the setting', async () => {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('credit_reset_day', '15')").run();
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings',
+      headers: { cookie },
+      payload: { credit_reset_day: '' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().credit_reset_day).toBeUndefined();
+  });
 });

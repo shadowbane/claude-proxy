@@ -166,6 +166,75 @@ describe('GET /api/users/:id', () => {
   });
 });
 
+// ── GET /api/users/:id/credits ─────────────────────
+
+describe('GET /api/users/:id/credits', () => {
+  it('returns credit status for a user', async () => {
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/users',
+      headers: { cookie },
+      payload: { name: 'CreditUser', credit_limit: 5000 },
+    });
+    const userId = createRes.json().id;
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/users/${userId}/credits`,
+      headers: { cookie },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.credit_limit).toBe(5000);
+    expect(body.credit_source).toBe('user');
+    expect(body.credits_used).toBe(0);
+    expect(body.credits_remaining).toBe(5000);
+    expect(body.window_start).toBeTruthy();
+    expect(body.window_end).toBeTruthy();
+    expect(body.reset_day).toBeGreaterThanOrEqual(1);
+  });
+
+  it('returns unlimited status when no limit configured', async () => {
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/users',
+      headers: { cookie },
+      payload: { name: 'Unlim' },
+    });
+    const userId = createRes.json().id;
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/users/${userId}/credits`,
+      headers: { cookie },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.credit_limit).toBeNull();
+    expect(body.credits_remaining).toBeNull();
+    expect(body.credit_source).toBe('none');
+  });
+
+  it('returns 404 for unknown user', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/users/nonexistent/credits',
+      headers: { cookie },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('requires admin auth', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/users/anything/credits',
+    });
+    expect(res.statusCode).toBe(401);
+  });
+});
+
 // ── PUT /api/users/:id ─────────────────────────────
 
 describe('PUT /api/users/:id', () => {

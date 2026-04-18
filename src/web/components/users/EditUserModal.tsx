@@ -13,6 +13,8 @@ export function EditUserModal({ open, user, onClose, onSubmit }: EditUserModalPr
   const [email, setEmail] = useState('');
   const [quotaMode, setQuotaMode] = useState<'default' | 'custom' | 'unlimited'>('default');
   const [quotaValue, setQuotaValue] = useState('');
+  const [creditMode, setCreditMode] = useState<'default' | 'custom' | 'unlimited'>('default');
+  const [creditValue, setCreditValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -29,6 +31,16 @@ export function EditUserModal({ open, user, onClose, onSubmit }: EditUserModalPr
     } else {
       setQuotaMode('custom');
       setQuotaValue(user.daily_token_quota.toString());
+    }
+    if (user.credit_limit === null) {
+      setCreditMode('default');
+      setCreditValue('');
+    } else if (user.credit_limit === -1) {
+      setCreditMode('unlimited');
+      setCreditValue('');
+    } else {
+      setCreditMode('custom');
+      setCreditValue(user.credit_limit.toString());
     }
     setSubmitting(false);
     setErrors({});
@@ -58,6 +70,14 @@ export function EditUserModal({ open, user, onClose, onSubmit }: EditUserModalPr
         if (user.daily_token_quota !== -1) update.daily_token_quota = -1;
       } else {
         if (user.daily_token_quota !== null) update.daily_token_quota = null;
+      }
+      if (creditMode === 'custom') {
+        const parsed = parseInt(creditValue, 10);
+        if (!isNaN(parsed) && parsed !== user.credit_limit) update.credit_limit = parsed;
+      } else if (creditMode === 'unlimited') {
+        if (user.credit_limit !== -1) update.credit_limit = -1;
+      } else {
+        if (user.credit_limit !== null) update.credit_limit = null;
       }
       if (Object.keys(update).length > 0) {
         await onSubmit(update);
@@ -133,6 +153,35 @@ export function EditUserModal({ open, user, onClose, onSubmit }: EditUserModalPr
               {quotaMode === 'default' && 'Inherits the global default limit from Settings.'}
               {quotaMode === 'custom' && 'Maximum total tokens per day for this user.'}
               {quotaMode === 'unlimited' && 'No daily limit, even if a global default is set.'}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">Monthly MiMo Credit Limit</label>
+            <select
+              value={creditMode}
+              onChange={(e) => setCreditMode(e.target.value as 'default' | 'custom' | 'unlimited')}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/60 mb-2"
+            >
+              <option value="default">Use global default</option>
+              <option value="custom">Custom limit</option>
+              <option value="unlimited">Unlimited</option>
+            </select>
+            {creditMode === 'custom' && (
+              <input
+                type="number"
+                value={creditValue}
+                onChange={(e) => setCreditValue(e.target.value)}
+                className={inputClass('credit')}
+                placeholder="e.g. 100000000"
+                min={0}
+                step={1}
+              />
+            )}
+            <p className="mt-1 text-xs text-slate-500">
+              {creditMode === 'default' && 'Inherits the global credit default from Settings.'}
+              {creditMode === 'custom' && 'Max mimo-v2-pro credits per monthly window (2× tokens for all types incl. cache reads).'}
+              {creditMode === 'unlimited' && 'No monthly credit limit, even if a global default is set.'}
             </p>
           </div>
 

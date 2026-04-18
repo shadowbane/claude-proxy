@@ -14,6 +14,7 @@ export interface User {
   email: string | null;
   enabled: number; // SQLite boolean: 0 | 1
   daily_token_quota: number | null;
+  credit_limit: number | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -24,6 +25,7 @@ export interface UserCreate {
   email?: string;
   enabled?: boolean;
   daily_token_quota?: number | null;
+  credit_limit?: number | null;
 }
 
 export interface UserUpdate {
@@ -31,6 +33,7 @@ export interface UserUpdate {
   email?: string;
   enabled?: boolean;
   daily_token_quota?: number | null;
+  credit_limit?: number | null;
 }
 
 // ── API Token ────────────────────────────────────
@@ -141,4 +144,33 @@ export interface QuotaStatus {
   window_start: string;
   window_end: string;
   override_id?: string;
+}
+
+// ── Credit Limit (monthly MiMo credits) ─────────────
+export interface CreditStatus {
+  credit_limit: number | null;             // effective limit, null = unlimited
+  credit_source: 'override' | 'user' | 'default' | 'none';
+  credits_used: number;                    // SUM(estimated_credits) in window
+  credits_remaining: number | null;        // null = unlimited
+  window_start: string;
+  window_end: string;
+  reset_day: number;                       // 1–28
+  override_id?: string;                    // present iff credit_source === 'override'
+}
+
+export interface CreditOverride {
+  id: string;
+  user_id: string;
+  start_date: string;   // YYYY-MM-DD
+  end_date: string;     // YYYY-MM-DD, inclusive
+  max_credits: number;
+  note: string | null;
+  created_at: string;
+}
+
+export interface CreditOverrideCreate {
+  start_date: string;
+  end_date: string;
+  max_credits: number;
+  note?: string;
 }

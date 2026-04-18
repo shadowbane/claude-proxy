@@ -2,6 +2,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { listUsers, getUserById, createUser, updateUser, deleteUser } from '../db/repositories/user.js';
 import { getQuotaStatus } from '../db/repositories/quota.js';
+import { getCreditStatus } from '../db/repositories/credit.js';
 import { adminAuth } from '../middleware/admin-auth.js';
 import type { UserCreate, UserUpdate } from '../../shared/types.js';
 
@@ -16,7 +17,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
 
   // POST /api/users — create a new user
   fastify.post<{ Body: UserCreate }>('/', async (request, reply) => {
-    const { name, email, enabled, daily_token_quota } = request.body;
+    const { name, email, enabled, daily_token_quota, credit_limit } = request.body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return reply.status(400).send({
@@ -25,7 +26,10 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const admin = request.user as { id: string };
-    const user = createUser({ name: name.trim(), email, enabled, daily_token_quota }, admin.id);
+    const user = createUser(
+      { name: name.trim(), email, enabled, daily_token_quota, credit_limit },
+      admin.id,
+    );
     return reply.status(201).send(user);
   });
 
@@ -49,6 +53,17 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
     return getQuotaStatus(request.params.id);
+  });
+
+  // GET /api/users/:id/credits — get monthly credit status for a user
+  fastify.get<{ Params: { id: string } }>('/:id/credits', async (request, reply) => {
+    const user = getUserById(request.params.id);
+    if (!user) {
+      return reply.status(404).send({
+        error: { message: 'User not found', type: 'not_found_error', code: 404 },
+      });
+    }
+    return getCreditStatus(request.params.id);
   });
 
   // PUT /api/users/:id — update user

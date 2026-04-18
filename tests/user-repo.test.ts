@@ -57,6 +57,21 @@ describe('createUser', () => {
     const u2 = createUser({ name: 'User2' }, adminId);
     expect(u1.id).not.toBe(u2.id);
   });
+
+  it('persists credit_limit when provided', () => {
+    const user = createUser({ name: 'CreditUser', credit_limit: 5000 }, adminId);
+    expect(user.credit_limit).toBe(5000);
+  });
+
+  it('defaults credit_limit to null when omitted', () => {
+    const user = createUser({ name: 'NoCredit' }, adminId);
+    expect(user.credit_limit).toBeNull();
+  });
+
+  it('persists credit_limit = -1 (explicit unlimited)', () => {
+    const user = createUser({ name: 'Unlim', credit_limit: -1 }, adminId);
+    expect(user.credit_limit).toBe(-1);
+  });
 });
 
 // ── listUsers ───────────────────────────────────────
@@ -143,6 +158,35 @@ describe('updateUser', () => {
 
   it('returns undefined for unknown ID', () => {
     expect(updateUser('nonexistent', { name: 'Ghost' })).toBeUndefined();
+  });
+
+  it('updates credit_limit to a value, to null, and to -1 independently', () => {
+    const user = createUser({ name: 'Flex' }, adminId);
+    expect(user.credit_limit).toBeNull();
+
+    const set = updateUser(user.id, { credit_limit: 5000 });
+    expect(set!.credit_limit).toBe(5000);
+
+    const cleared = updateUser(user.id, { credit_limit: null });
+    expect(cleared!.credit_limit).toBeNull();
+
+    const unlim = updateUser(user.id, { credit_limit: -1 });
+    expect(unlim!.credit_limit).toBe(-1);
+  });
+
+  it('updating daily_token_quota does not touch credit_limit and vice versa', () => {
+    const user = createUser(
+      { name: 'Indep', daily_token_quota: 100, credit_limit: 200 },
+      adminId,
+    );
+
+    const q = updateUser(user.id, { daily_token_quota: 999 });
+    expect(q!.daily_token_quota).toBe(999);
+    expect(q!.credit_limit).toBe(200);
+
+    const c = updateUser(user.id, { credit_limit: 888 });
+    expect(c!.daily_token_quota).toBe(999);
+    expect(c!.credit_limit).toBe(888);
   });
 });
 

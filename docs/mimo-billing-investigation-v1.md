@@ -109,55 +109,7 @@ Total usage since logging began, with MiMo-equivalent credit estimate at 2× pro
 
 ---
 
-## 5. Recommendations
-
-### 5.1 Immediate — operational guidance to end users
-
-Because MiMo charges cache reads at full rate, **session length is the dominant cost driver**. Users should:
-
-1. Run `/clear` between unrelated tasks rather than letting a single session span multiple topics.
-2. Run `/compact` when a session's context grows large.
-3. Disable MCP servers not needed for the current project (each server's tool schemas are re-read every turn).
-4. Minimise global `CLAUDE.md` content — every byte is paid for on every turn of every session.
-
-### 5.2 Proxy-side — quota accounting changes
-
-Update the daily-quota middleware so that `cache_read_input_tokens` and `cache_creation_input_tokens` are included in
-the counted total. The current accounting under-reports true MiMo cost by roughly 8× and therefore does not protect the
-shared Max-tier budget.
-
-Suggested formula (reflecting what MiMo actually bills):
-
-```
-counted_tokens = prompt_tokens + completion_tokens
-               + cache_creation_input_tokens
-               + cache_read_input_tokens
-```
-
-No model-multiplier needs to be applied inside the proxy as long as all users are on `mimo-v2-pro` (the 2× is a constant
-and can be absorbed into the quota value itself).
-
-**Implemented** as an independent monthly credit limit (not as a mutation of
-`daily_token_quota`, which is kept for Anthropic-style short-window fairness).
-See [`credit-limit.md`](./credit-limit.md) for the design, API, and
-operational runbook. Both limits are enforced on every `/v1/messages` request.
-
-### 5.3 Strategic — evaluate alternatives
-
-A separate public account recommends routing the same Anthropic-compatible traffic through **OpenCode Go**, which
-reportedly offers `mimo-v2-pro` without the cache-read penalty. We recommend:
-
-1. **Confirm the behaviour directly with Xiaomi support** before drawing final conclusions — request an official
-   statement on how `cache_read_input_tokens` is billed for `mimo-v2-pro`.
-2. **Run a controlled test** on OpenCode Go or a comparable alternative with an identical workload to compare effective
-   credit burn.
-3. **Re-evaluate the Max-tier subscription**. At current session patterns, 1.6B credits covers substantially less Claude
-   Code usage than the nominal token count would suggest, and a different provider or a different subscription mix may
-   be more cost-effective.
-
----
-
-## 6. References
+## 5. References
 
 - r/opencodeCLI — *"I think Xiaomi Token Plan charges 2x real input price for the cached
   input"* — https://www.reddit.com/r/opencodeCLI/comments/1sd6rof/i_think_xiaomi_token_plan_charges_2x_real_input/

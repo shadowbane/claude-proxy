@@ -46,3 +46,51 @@ export function backfillEstimatedCredits(db: Database.Database): BackfillReceipt
 
   return receipt;
 }
+
+/**
+ * Fills `estimated_credits` for historical rows on non-pro MiMo models that
+ * predate the calculator's multi-model support. mimo-v2-pro rows are left
+ * alone (v1 already set them to 2×). Runs once per DB.
+ *
+ *   mimo-v2-omni → 1× (raw token sum)
+ *   mimo-v2-tts  → 0  (free during public beta)
+ */
+export function backfillMultiModelCredits(db: Database.Database): BackfillReceipt | null {
+  const FLAG = 'backfill_estimated_credits_v2';
+
+  const existing = db
+    .prepare('SELECT value FROM settings WHERE key = ?')
+    .get(FLAG) as { value: string } | undefined;
+  if (existing) return null;
+
+  const omni = db
+    .prepare(
+      `UPDATE request_logs
+       SET estimated_credits =
+         (prompt_tokens + completion_tokens + cache_creation_input_tokens + cache_read_input_tokens) * 1
+       WHERE model = 'mimo-v2-omni'
+         AND estimated_credits IS NULL`,
+    )
+    .run();
+
+  const tts = db
+    .prepare(
+      `UPDATE request_logs
+       SET estimated_credits = 0
+       WHERE model = 'mimo-v2-tts'
+         AND estimated_credits IS NULL`,
+    )
+    .run();
+
+  const receipt: BackfillReceipt = {
+    ran_at: new Date().toISOString(),
+    rows_updated: Number(omni.changes) + Number(tts.changes),
+  };
+
+  db.prepare(
+    `INSERT INTO settings (key, value, updated_at)
+     VALUES (?, ?, datetime('now'))`,
+  ).run(FLAG, JSON.stringify(receipt));
+
+  return receipt;
+}

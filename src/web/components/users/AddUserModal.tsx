@@ -12,6 +12,8 @@ export function AddUserModal({ open, onClose, onSubmit }: AddUserModalProps) {
   const [email, setEmail] = useState('');
   const [quotaMode, setQuotaMode] = useState<'default' | 'custom' | 'unlimited'>('default');
   const [quotaValue, setQuotaValue] = useState('');
+  const [creditMode, setCreditMode] = useState<'default' | 'custom' | 'unlimited'>('default');
+  const [creditValue, setCreditValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -21,6 +23,8 @@ export function AddUserModal({ open, onClose, onSubmit }: AddUserModalProps) {
     setEmail('');
     setQuotaMode('default');
     setQuotaValue('');
+    setCreditMode('default');
+    setCreditValue('');
     setSubmitting(false);
     setErrors({});
   }, [open]);
@@ -42,6 +46,11 @@ export function AddUserModal({ open, onClose, onSubmit }: AddUserModalProps) {
         data.daily_token_quota = parseInt(quotaValue, 10);
       } else if (quotaMode === 'unlimited') {
         data.daily_token_quota = -1;
+      }
+      if (creditMode === 'custom' && creditValue) {
+        data.credit_limit = parseInt(creditValue, 10);
+      } else if (creditMode === 'unlimited') {
+        data.credit_limit = -1;
       }
       await onSubmit(data);
       onClose();
@@ -118,6 +127,35 @@ export function AddUserModal({ open, onClose, onSubmit }: AddUserModalProps) {
               {quotaMode === 'default' && 'Inherits the global default limit from Settings.'}
               {quotaMode === 'custom' && 'Maximum total tokens per day for this user.'}
               {quotaMode === 'unlimited' && 'No daily limit, even if a global default is set.'}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">Monthly MiMo Credit Limit</label>
+            <select
+              value={creditMode}
+              onChange={(e) => setCreditMode(e.target.value as 'default' | 'custom' | 'unlimited')}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/60 mb-2"
+            >
+              <option value="default">Use global default</option>
+              <option value="custom">Custom limit</option>
+              <option value="unlimited">Unlimited</option>
+            </select>
+            {creditMode === 'custom' && (
+              <input
+                type="number"
+                value={creditValue}
+                onChange={(e) => setCreditValue(e.target.value)}
+                className={inputClass('credit')}
+                placeholder="e.g. 100000000"
+                min={0}
+                step={1}
+              />
+            )}
+            <p className="mt-1 text-xs text-slate-500">
+              {creditMode === 'default' && 'Inherits the global credit default from Settings.'}
+              {creditMode === 'custom' && 'Max mimo-v2-pro credits per monthly window (2× token × all types, incl. cache reads).'}
+              {creditMode === 'unlimited' && 'No monthly credit limit, even if a global default is set.'}
             </p>
           </div>
 

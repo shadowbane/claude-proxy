@@ -2,7 +2,7 @@
 import Database from 'better-sqlite3';
 import { config } from '../config.js';
 import { SCHEMA_SQL } from './schema.js';
-import { backfillEstimatedCredits } from './backfill.js';
+import { backfillEstimatedCredits, backfillMultiModelCredits } from './backfill.js';
 import { hashPassword } from '../lib/crypto.js';
 import { mkdirSync } from 'fs';
 import { dirname } from 'path';
@@ -27,10 +27,12 @@ export function getDb(): Database.Database {
 
   // Column migrations for existing databases
   try { _db.exec('ALTER TABLE users ADD COLUMN daily_token_quota INTEGER DEFAULT NULL'); } catch { /* column already exists */ }
+  try { _db.exec('ALTER TABLE users ADD COLUMN credit_limit INTEGER DEFAULT NULL'); } catch { /* column already exists */ }
   try { _db.exec('ALTER TABLE request_logs ADD COLUMN estimated_credits INTEGER DEFAULT NULL'); } catch { /* column already exists */ }
 
   // One-shot data backfills (guarded by settings flags so they run exactly once)
   backfillEstimatedCredits(_db);
+  backfillMultiModelCredits(_db);
 
   return _db;
 }

@@ -18,9 +18,13 @@ import { TokenList } from './TokenList.js';
 import { CreateTokenModal } from './CreateTokenModal.js';
 import { ConfirmDialog } from '../shared/ConfirmDialog.js';
 import { QuotaStatusCard } from './QuotaStatusCard.js';
+import { CreditStatusCard } from './CreditStatusCard.js';
 import { QuotaOverrideModal } from './QuotaOverrideModal.js';
+import { CreditOverrideModal } from './CreditOverrideModal.js';
 import { useQuota } from '@/hooks/useQuota.js';
+import { useCredits } from '@/hooks/useCredits.js';
 import { useQuotaOverrides } from '@/hooks/useQuotaOverrides.js';
+import { useCreditOverrides } from '@/hooks/useCreditOverrides.js';
 import { StatCard } from '../dashboard/StatCard.js';
 import { Skeleton } from '../shared/Skeleton.js';
 
@@ -99,11 +103,18 @@ export function UserDetailPage() {
   const user = users.find((u) => u.id === id);
 
   const { status: quotaStatus, loading: quotaLoading, refetch: refetchQuota } = useQuota(id);
+  const { status: creditStatus, loading: creditLoading, refetch: refetchCredits } = useCredits(id);
   const { overrides, createOverride, deleteOverride } = useQuotaOverrides(id);
+  const {
+    overrides: creditOverrides,
+    createOverride: createCreditOverride,
+    deleteOverride: deleteCreditOverride,
+  } = useCreditOverrides(id);
 
   const [editOpen, setEditOpen] = useState(false);
   const [tokenModalOpen, setTokenModalOpen] = useState(false);
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
+  const [creditOverrideModalOpen, setCreditOverrideModalOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -272,7 +283,10 @@ export function UserDetailPage() {
         <StatCard label="Est. MiMo Credits (2×)" value={numberFmt.format(totals.estimatedCredits)} loading={chartLoading} />
       </div>
 
-      <QuotaStatusCard status={quotaStatus} loading={quotaLoading} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <QuotaStatusCard status={quotaStatus} loading={quotaLoading} />
+        <CreditStatusCard status={creditStatus} loading={creditLoading} />
+      </div>
 
       {chartError && (
         <div className="bg-red-950/40 border border-red-900/60 rounded-lg p-4 text-sm text-red-300">
@@ -351,6 +365,67 @@ export function UserDetailPage() {
         )}
       </div>
 
+      <div className="bg-slate-800 border border-slate-700/60 rounded-lg p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-slate-200">Credit Overrides</h3>
+          <button
+            onClick={() => setCreditOverrideModalOpen(true)}
+            className="px-3 py-1.5 text-xs font-medium rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
+          >
+            + Add Override
+          </button>
+        </div>
+        {creditOverrides.length === 0 ? (
+          <p className="text-sm text-slate-500">No credit overrides configured.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-slate-500 uppercase tracking-wide">
+                  <th className="pb-2 pr-4">Date Range</th>
+                  <th className="pb-2 pr-4">Max Credits</th>
+                  <th className="pb-2 pr-4">Note</th>
+                  <th className="pb-2"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/60">
+                {creditOverrides.map((o) => {
+                  const todayStr = new Date().toISOString().slice(0, 10);
+                  const isPast = o.end_date < todayStr;
+                  const isActive = o.start_date <= todayStr && todayStr <= o.end_date;
+                  return (
+                    <tr key={o.id} className={isPast ? 'opacity-50' : ''}>
+                      <td className="py-2 pr-4 text-slate-300">
+                        {o.start_date} to {o.end_date}
+                        {isActive && (
+                          <span className="ml-2 text-[10px] uppercase tracking-wide px-2 py-0.5 rounded bg-purple-500/15 text-purple-400">
+                            Active
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 pr-4 text-slate-300">{numberFmt.format(o.max_credits)}</td>
+                      <td className="py-2 pr-4 text-slate-400">{o.note || '-'}</td>
+                      <td className="py-2 text-right">
+                        <button
+                          onClick={() =>
+                            deleteCreditOverride(o.id).then(() => {
+                              refetchCredits();
+                            })
+                          }
+                          className="text-xs text-red-400 hover:text-red-300"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       <TokenList
         tokens={tokens}
         loading={tokensLoading}
@@ -374,6 +449,7 @@ export function UserDetailPage() {
           if (!user) return;
           await updateUser(user.id, data);
           refetchQuota();
+          refetchCredits();
         }}
       />
 
@@ -383,6 +459,15 @@ export function UserDetailPage() {
         onCreate={async (data) => {
           await createOverride(data);
           refetchQuota();
+        }}
+      />
+
+      <CreditOverrideModal
+        open={creditOverrideModalOpen}
+        onClose={() => setCreditOverrideModalOpen(false)}
+        onCreate={async (data) => {
+          await createCreditOverride(data);
+          refetchCredits();
         }}
       />
 

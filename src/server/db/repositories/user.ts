@@ -12,8 +12,8 @@ export function getUserById(id: string): User | undefined {
 
 export function createUser(data: UserCreate, createdBy: string): User {
   const stmt = getDb().prepare(
-    `INSERT INTO users (name, email, enabled, daily_token_quota, created_by)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO users (name, email, enabled, daily_token_quota, credit_limit, created_by)
+     VALUES (?, ?, ?, ?, ?, ?)
      RETURNING *`,
   );
   return stmt.get(
@@ -21,6 +21,7 @@ export function createUser(data: UserCreate, createdBy: string): User {
     data.email ?? null,
     data.enabled === false ? 0 : 1,
     data.daily_token_quota ?? null,
+    data.credit_limit ?? null,
     createdBy,
   ) as User;
 }
@@ -44,6 +45,10 @@ export function updateUser(id: string, data: UserUpdate): User | undefined {
   if (data.daily_token_quota !== undefined) {
     fields.push('daily_token_quota = ?');
     values.push(data.daily_token_quota);
+  }
+  if (data.credit_limit !== undefined) {
+    fields.push('credit_limit = ?');
+    values.push(data.credit_limit);
   }
 
   if (fields.length === 0) return getUserById(id);

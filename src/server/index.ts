@@ -20,6 +20,7 @@ import { usageRoutes } from './routes/usage.js';
 import { requestLogRoutes } from './routes/request-logs.js';
 import { settingsRoutes } from './routes/settings.js';
 import { quotaOverrideRoutes } from './routes/quota-overrides.js';
+import { creditOverrideRoutes } from './routes/credit-overrides.js';
 import { planUsageRoutes } from './routes/plan-usage.js';
 import { startLogCleanupSchedule, stopLogCleanupSchedule } from './lib/log-cleaner.js';
 import { flushPendingTouches } from './db/repositories/api-token.js';
@@ -94,6 +95,7 @@ async function main() {
   await fastify.register(requestLogRoutes, { prefix: '/api' });
   await fastify.register(settingsRoutes, { prefix: '/api' });
   await fastify.register(quotaOverrideRoutes, { prefix: '/api' });
+  await fastify.register(creditOverrideRoutes, { prefix: '/api' });
   await fastify.register(planUsageRoutes, { prefix: '/api' });
 
   // Health check

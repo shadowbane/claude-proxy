@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { createTestDb } from './helpers.js';
-import { backfillEstimatedCredits } from '../src/server/db/backfill.js';
+import { backfillEstimatedCredits, backfillMultiModelCredits } from '../src/server/db/backfill.js';
 
 let db: Database.Database;
 
@@ -108,5 +108,70 @@ describe('backfillEstimatedCredits', () => {
     // Flag should still be set so we don't keep scanning on every startup
     const second = backfillEstimatedCredits(db);
     expect(second).toBeNull();
+  });
+});
+
+describe('backfillMultiModelCredits', () => {
+  it('fills mimo-v2-omni rows at 1× and mimo-v2-tts rows at 0', () => {
+    const omni = insertLog('mimo-v2-omni', 100, 50, 25, 1000, null);
+    const tts = insertLog('mimo-v2-tts', 10, 20, 0, 0, null);
+
+    const receipt = backfillMultiModelCredits(db);
+
+    expect(receipt).not.toBeNull();
+    expect(receipt?.rows_updated).toBe(2);
+    expect(getCredits(omni.id)).toBe(100 + 50 + 25 + 1000);
+    expect(getCredits(tts.id)).toBe(0);
+  });
+
+  it('does not touch mimo-v2-pro rows (v1 already handled them)', () => {
+    // Simulate a pro row that v1 already populated
+    const pro = insertLog('mimo-v2-pro', 100, 50, 0, 0, 300);
+
+    backfillMultiModelCredits(db);
+
+    expect(getCredits(pro.id)).toBe(300);
+  });
+
+  it('does not touch rows with estimated_credits already set', () => {
+    const preset = insertLog('mimo-v2-omni', 100, 50, 0, 0, 99999);
+
+    backfillMultiModelCredits(db);
+
+    expect(getCredits(preset.id)).toBe(99999);
+  });
+
+  it('does not touch unknown-model rows', () => {
+    const other = insertLog('claude-3-5-sonnet', 100, 50, 0, 0, null);
+
+    backfillMultiModelCredits(db);
+
+    expect(getCredits(other.id)).toBeNull();
+  });
+
+  it('persists a v2 flag and is a no-op on subsequent calls', () => {
+    insertLog('mimo-v2-omni', 100, 0, 0, 0, null);
+
+    const first = backfillMultiModelCredits(db);
+    expect(first?.rows_updated).toBe(1);
+
+    const later = insertLog('mimo-v2-omni', 999, 0, 0, 0, null);
+
+    const second = backfillMultiModelCredits(db);
+    expect(second).toBeNull();
+    expect(getCredits(later.id)).toBeNull();
+  });
+
+  it('records a v2 receipt separate from v1', () => {
+    insertLog('mimo-v2-omni', 100, 0, 0, 0, null);
+
+    backfillMultiModelCredits(db);
+
+    const row = db
+      .prepare("SELECT value FROM settings WHERE key = 'backfill_estimated_credits_v2'")
+      .get() as { value: string } | undefined;
+    expect(row).toBeDefined();
+    const receipt = JSON.parse(row!.value) as { ran_at: string; rows_updated: number };
+    expect(receipt.rows_updated).toBe(1);
   });
 });

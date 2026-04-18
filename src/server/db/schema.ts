@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   email             TEXT,
   enabled           INTEGER NOT NULL DEFAULT 1,
   daily_token_quota INTEGER DEFAULT NULL,
+  credit_limit      INTEGER DEFAULT NULL,
   created_by        TEXT    REFERENCES admins(id) ON DELETE SET NULL,
   created_at        TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at        TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -73,6 +74,17 @@ CREATE TABLE IF NOT EXISTS quota_overrides (
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Credit overrides (per-user temporary monthly credit limit changes)
+CREATE TABLE IF NOT EXISTS credit_overrides (
+  id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+  user_id     TEXT    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  start_date  TEXT    NOT NULL,
+  end_date    TEXT    NOT NULL,
+  max_credits INTEGER NOT NULL,
+  note        TEXT,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_users_enabled ON users(enabled);
 CREATE INDEX IF NOT EXISTS idx_api_tokens_hash ON api_tokens(token_hash);
@@ -81,4 +93,5 @@ CREATE INDEX IF NOT EXISTS idx_request_logs_created ON request_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_request_logs_user_id ON request_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_request_logs_user_created ON request_logs(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_quota_overrides_user_dates ON quota_overrides(user_id, start_date, end_date);
+CREATE INDEX IF NOT EXISTS idx_credit_overrides_user_dates ON credit_overrides(user_id, start_date, end_date);
 `;

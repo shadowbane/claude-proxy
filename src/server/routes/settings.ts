@@ -62,6 +62,34 @@ export const settingsRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
+      // Validate credit_limit_default (empty string = remove, -1 = unlimited)
+      if (key === 'credit_limit_default') {
+        if (value === '') {
+          remove(key);
+          continue;
+        }
+        const parsed = parseInt(value, 10);
+        if (isNaN(parsed) || !Number.isInteger(parsed) || String(parsed) !== value || parsed < -1) {
+          return reply.status(400).send({
+            error: { message: 'credit_limit_default must be -1 (unlimited) or a non-negative integer', type: 'invalid_request_error', code: 400 },
+          });
+        }
+      }
+
+      // Validate credit_reset_day (day of month, 1–28)
+      if (key === 'credit_reset_day') {
+        if (value === '') {
+          remove(key);
+          continue;
+        }
+        const parsed = parseInt(value, 10);
+        if (isNaN(parsed) || !Number.isInteger(parsed) || String(parsed) !== value || parsed < 1 || parsed > 28) {
+          return reply.status(400).send({
+            error: { message: 'credit_reset_day must be an integer between 1 and 28', type: 'invalid_request_error', code: 400 },
+          });
+        }
+      }
+
       upsert(key, value);
     }
 
